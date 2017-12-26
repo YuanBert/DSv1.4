@@ -48,14 +48,26 @@
 
 /* USER CODE BEGIN Includes */
 #include "ds_led.h"
-
+#include "ds_protocol.h"
+#include "ds_gentlesensor.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
+extern  USARTRECIVETYPE     CoreBoardUsartType;
+extern  USARTRECIVETYPE     DoorBoardUsartType;
 
+PROTOCOLCMD  gCoreBoardProtocolCmd;
+PROTOCOLCMD  gDoorBoardProtocolCmd;
+GPIOSTATUSDETECTION gGentleSensorStatusDetection;
+
+uint16_t    gTIM4Cnt;
+uint8_t     gTIM4CntFlag;
+
+uint16_t    gTIM5Cnt;
+uint8_t     gTIM5CntFlag;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -110,6 +122,12 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start_IT(&htim4);
   HAL_TIM_Base_Start_IT(&htim5);
+  DS_GentleSensorInit();
+  DS_CoreBoardProtocolInit();
+  DS_DoorBoardProtocolInit();
+  HAL_TIM_Base_Start_IT(&htim4);
+  HAL_TIM_Base_Start_IT(&htim5);
+  
   
   
   /* USER CODE END 2 */
@@ -122,6 +140,20 @@ int main(void)
 
   /* USER CODE BEGIN 3 */
   DS_LEDS_TEST();
+  
+  DS_GentleSensorCheck();
+  DS_HandingUartDataFromCoreBoard();
+  DS_HandingCmdFromCoreBoard(&gCoreBoardProtocolCmd);
+  
+  DS_HandingUartDataFromDoorBoard();
+  DS_HandingCmdFromDoorBoard(&gDoorBoardProtocolCmd);
+  
+  if(1 == gTIM5CntFlag)
+  {
+    DS_TrySend5TimesCmdToCoreBoard(&gCoreBoardProtocolCmd);
+    DS_TrySend5TimesCmdToDoorBoard(&gDoorBoardProtocolCmd);
+    gTIM5CntFlag = 0;
+  }
 
   }
   /* USER CODE END 3 */
@@ -232,13 +264,44 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   /* 0.1 ms*/
   if(htim4.Instance == htim->Instance)
   {
-  
+    gGentleSensorStatusDetection.GpioCurrentReadVal = HAL_GPIO_ReadPin(GentleSensor_GPIO_Port,GentleSensor_Pin);
+    if(0 == gGentleSensorStatusDetection.GpioCurrentReadVal && 0 == gGentleSensorStatusDetection.GpioLastReadVal)
+    {
+      if(0 == gGentleSensorStatusDetection.GpioCheckedFlag)
+      {
+        gGentleSensorStatusDetection.GpioFilterCnt ++;
+        if(gGentleSensorStatusDetection.GpioFilterCnt > gGentleSensorStatusDetection.GpioFilterCntSum && 0 == gGentleSensorStatusDetection.GpioStatusVal)
+        {
+          gGentleSensorStatusDetection.GpioStatusVal = 1;
+          gGentleSensorStatusDetection.GpioFilterCnt = 0;
+          gGentleSensorStatusDetection.GpioCheckedFlag = 1;
+        }
+      }
+    }
+    else
+    {
+      gGentleSensorStatusDetection.GpioCheckedFlag       = 0;
+      gGentleSensorStatusDetection.GpioFilterCnt     = 0;
+      gGentleSensorStatusDetection.GpioStatusVal     = 0;
+      gGentleSensorStatusDetection.GpioSendDataFlag  = 1;
+    }     
+    gGentleSensorStatusDetection.GpioLastReadVal = gGentleSensorStatusDetection.GpioCurrentReadVal; 
   }
   
   /* 1ms */
   if(htim5.Instance == htim->Instance)
   {
+    gTIM5Cnt++;
+    if(gTIM5Cnt > 300)
+    {
+      gTIM5CntFlag = 1;
+      gTIM5Cnt = 0;
+    }   
     
+    if(gGentleSensorStatusDetection.GpioValidLogicTimeCnt > 80)
+    {
+      gGentleSensorStatusDetection.GpioValidLogicTimeCnt--;
+    }
   }
 
 }

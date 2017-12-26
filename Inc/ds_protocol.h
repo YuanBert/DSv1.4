@@ -141,10 +141,22 @@
    DS_StatusTypeDef DS_HandingUartDataFromDoorBoard(void);   
    
    DS_StatusTypeDef DS_SendRequestCmdToCoreBoard(pPROTOCOLCMD pRequestCmd);
-   DS_StatusTypeDef DS_AckRequestCmdFromDoorBoard(pPROTOCOLCMD pRequestCmd);
+   DS_StatusTypeDef DS_SendRequestCmdToDoorBoard(pPROTOCOLCMD pRequestCmd);
    
    DS_StatusTypeDef DS_AckRequestCmdFromCoreBoard(pPROTOCOLCMD pRequestCmd);
    DS_StatusTypeDef DS_AckRequestCmdFromDoorBoard(pPROTOCOLCMD pRequestCmd);
+   
+  DS_StatusTypeDef DS_HandingCmdFromCoreBoard(pPROTOCOLCMD pRequestCmd);
+  DS_StatusTypeDef DS_HandingCmdFromDoorBoard(pPROTOCOLCMD pRequestCmd);
+  
+  DS_StatusTypeDef DS_TrySend5TimesCmdToCoreBoard(pPROTOCOLCMD pRequestCmd);
+  DS_StatusTypeDef DS_TrySend5TimesCmdToDoorBoard(pPROTOCOLCMD pRequestCmd);
+  
+  
+  DS_StatusTypeDef DS_Test(void);
+   
+   
+   
    
   
 #ifdef __cplusplus

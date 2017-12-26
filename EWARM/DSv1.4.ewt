@@ -1202,6 +1202,9 @@
                 <name>$PROJ_DIR$\..\Src\dma.c</name>
             </file>
             <file>
+                <name>$PROJ_DIR$\..\Src\ds_gentlesensor.c</name>
+            </file>
+            <file>
                 <name>$PROJ_DIR$\..\Src\ds_led.c</name>
             </file>
             <file>

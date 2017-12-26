@@ -59,6 +59,64 @@
     extern PROTOCOLCMD  gCoreBoardProtocolCmd;
     extern PROTOCOLCMD  gDoorBoardProtocolCmd;
     
+    static DS_StatusTypeDef DS_SendOPenDoorCmd(void)
+    {
+      DS_StatusTypeDef state = DS_OK;
+      gDoorBoardProtocolCmd.CmdParam = 0x01;
+      gDoorBoardProtocolCmd.CmdType = 0XB2;
+      gDoorBoardProtocolCmd.DataLengthHight = 0;
+      gDoorBoardProtocolCmd.DataLengthLow = 0;
+      gDoorBoardProtocolCmd.DataLength = 0;
+      state = DS_SendRequestCmdToDoorBoard(&gDoorBoardProtocolCmd);
+      gDoorBoardProtocolCmd.CmdParam = 0xB2;
+      return state;
+    }
+    
+    /*******************************************************************************
+    *
+    *       Function        :DS_SendRequestCmd()
+    *
+    *       Input           :pPROTOCOLCMD pRequestCmd,uint8_t *pCmdDataBuffer
+    *
+    *       Return          :DS_StatusTypeDef
+    *
+    *       Description     :--
+    *
+    *
+    *       Data            :2017/12/26
+    *       Author          :bertz
+    *******************************************************************************/
+    static DS_StatusTypeDef DS_SendRequestCmd(pPROTOCOLCMD pRequestCmd,uint8_t *pCmdDataBuffer)
+    {
+      uint16_t dataLength = 0;
+      //uint16_t tempCRC    = 0;
+      DS_StatusTypeDef state = DS_OK;
+      if(0 == pRequestCmd->HandingFlag)
+      {
+        pRequestCmd->HandingFlag = 1;
+        *(pCmdDataBuffer + 1) = pRequestCmd->CmdType;
+        *(pCmdDataBuffer + 2)= pRequestCmd->CmdParam;
+        *(pCmdDataBuffer + 3)= pRequestCmd->DataLengthHight;
+        *(pCmdDataBuffer + 4)= pRequestCmd->DataLengthLow;
+        dataLength = pRequestCmd->DataLength;
+        *(pCmdDataBuffer + REQUESTFIXEDCOMMANDLEN + dataLength - 1) = 0x5D;
+        
+        /* Calculate CRC */
+        /*
+        tempCRC = CRC16BIT(pCmdDataBuffer + 1, 4 + dataLength);
+        *(pCmdDataBuffer + dataLength + REQUESTFIXEDCOMMANDLEN - 3) = (uint8_t)(tempCRC >> 8);
+        *(pCmdDataBuffer + dataLength + REQUESTFIXEDCOMMANDLEN - 2) = (uint8_t)tempCRC;
+        */
+        
+        pRequestCmd->TotalLength = dataLength + REQUESTFIXEDCOMMANDLEN;
+        pRequestCmd->RevOrSendFlag = 1;
+        pRequestCmd->RevEchoFlag = 0;
+      }
+      return state;   
+    }
+
+     
+    
     /*******************************************************************************
     *
     *       Function        :DS_CoreBoardUsartReceive_IDLE()
@@ -247,8 +305,597 @@
         return state;
       }
       
+      if(gCoreBoardProtocolCmd.RevDataCnt < gCoreBoardProtocolCmd.DataLength && 0 != gCoreBoardProtocolCmd.RevDataCnt)
+      {
+        for(i = 0; i < CoreBoardUsartType.RX_Size; i++)
+        {
+          CoreBoardCmdBuffer[5 + gCoreBoardProtocolCmd.RevDataCnt + i] = *(CoreBoardUsartType.RX_pData + i);
+          gCoreBoardProtocolCmd.RevDataCnt ++;
+          if(gCoreBoardProtocolCmd.DataLength == gCoreBoardProtocolCmd.RevDataCnt)
+          {
+            gCoreBoardProtocolCmd.DataCRC16     =(*(CoreBoardUsartType.RX_pData + i + 1) << 8) + *(CoreBoardUsartType.RX_pData + i + 2);
+            if(0x5D != *(CoreBoardUsartType.RX_pData + i + 3))
+            {
+              gCoreBoardProtocolCmd.RevDataCnt          = 0;
+              gCoreBoardProtocolCmd.DataLength          = 0;
+              gCoreBoardProtocolCmd.TotalLength         = 0;
+              return state;
+            }
+            /* here to check CRC16-CCITT inspection code */
+            gCoreBoardProtocolCmd.RevRequestFlag = 1;
+            return state;
+          }
+        }
+        return state;
+      }
+      
+      if(0 == gCoreBoardProtocolCmd.TotalLength)
+      {
+        if(0x5B != *(CoreBoardUsartType.RX_pData))
+        {
+          return state;
+        }
+        
+        if(0xA0 == (*(CoreBoardUsartType.RX_pData + 1) & 0xF0) && 0x5D == *(CoreBoardUsartType.RX_pData + ACKFIXEDCOMMANDLEN - 1))
+        {
+          gCoreBoardProtocolCmd.AckCmdCode             =*(CoreBoardUsartType.RX_pData + 1);
+          gCoreBoardProtocolCmd.AckCmdCode             =*(CoreBoardUsartType.RX_pData + 2);
+          gCoreBoardProtocolCmd.AckCRC16CITT           =(*(CoreBoardUsartType.RX_pData + 3) << 8) + *(CoreBoardUsartType.RX_pData + 4);
+          /* here to add CRC16-CCITT inspection code */
+          gCoreBoardProtocolCmd.RevEchoFlag = 1;
+          return state;
+        }
+        
+        gCoreBoardProtocolCmd.CmdType           =*(CoreBoardUsartType.RX_pData + 1);
+        gCoreBoardProtocolCmd.CmdParam          =*(CoreBoardUsartType.RX_pData + 2);
+        
+        gCoreBoardProtocolCmd.DataLengthLow     =*(CoreBoardUsartType.RX_pData + 4);
+        gCoreBoardProtocolCmd.DataLengthHight   =*(CoreBoardUsartType.RX_pData + 3);
+        
+        CoreBoardCmdBuffer[1]   = gCoreBoardProtocolCmd.CmdType;
+        CoreBoardCmdBuffer[2]   = gCoreBoardProtocolCmd.CmdParam;
+        CoreBoardCmdBuffer[3]   = gCoreBoardProtocolCmd.DataLengthHight;
+        CoreBoardCmdBuffer[4]   = gCoreBoardProtocolCmd.DataLengthLow;
+        
+        gCoreBoardProtocolCmd.DataLength = (gCoreBoardProtocolCmd.DataLengthHight << 8) + gCoreBoardProtocolCmd.DataLengthLow;
+        
+        
+        if(0 == gCoreBoardProtocolCmd.DataLength)
+        {
+          if(0x5D != *(CoreBoardUsartType.RX_pData + REQUESTFIXEDCOMMANDLEN - 1))
+          {
+            return state;
+          }
+          gCoreBoardProtocolCmd.DataCRC16       =*(CoreBoardUsartType.RX_pData + 5) << 8 + *(CoreBoardUsartType.RX_pData + 6);
+          /* Hrere to check CRC16-CCITT */
+          gCoreBoardProtocolCmd.RevRequestFlag  = 1;
+          gCoreBoardProtocolCmd.TotalLength     = REQUESTFIXEDCOMMANDLEN;
+          return state;
+        }
+        
+        for(i = 5; i < CoreBoardUsartType.RX_Size; i++)
+        {
+          CoreBoardCmdBuffer[i] = *(CoreBoardUsartType.RX_pData + i);
+          gCoreBoardProtocolCmd.RevDataCnt ++;
+          if(gCoreBoardProtocolCmd.DataLength == gCoreBoardProtocolCmd.RevDataCnt)
+          {
+            if(0x5D != *(CoreBoardUsartType.RX_pData + REQUESTFIXEDCOMMANDLEN + gCoreBoardProtocolCmd.RevDataCnt -1))
+            {
+              gCoreBoardProtocolCmd.RevDataCnt          = 0;
+              gCoreBoardProtocolCmd.DataLength          = 0;
+              gCoreBoardProtocolCmd.TotalLength         = 0;
+              return state;
+            }
+            gCoreBoardProtocolCmd.DataCRC16 = *(CoreBoardUsartType.RX_pData + i + 1)<<8 + *(CoreBoardUsartType.RX_pData + i + 2);
+            gCoreBoardProtocolCmd.RevRequestFlag = 1;
+            gCoreBoardProtocolCmd.TotalLength = REQUESTFIXEDCOMMANDLEN + gCoreBoardProtocolCmd.DataLength;
+            return state;
+          }
+        } 
+      }
+      
       return state;
     }
+    /*******************************************************************************
+    *
+    *       Function        :DS_HandingUartDataFromDoorBoard()
+    *
+    *       Input           :void
+    *
+    *       Return          :DS_StatusTypeDef
+    *
+    *       Description     :--
+    *
+    *
+    *       Data            :2017/12/26
+    *       Author          :bertz
+    *******************************************************************************/
+    DS_StatusTypeDef DS_HandingUartDataFromDoorBoard(void)
+    {
+      DS_StatusTypeDef state = DS_OK;
+      uint16_t i;
+      if(!DoorBoardUsartType.RX_Flag)
+      {
+        return state;
+      }
+      DoorBoardUsartType.RX_Flag = 0;
+      if(gDoorBoardProtocolCmd.RevOrSendFlag)
+      {
+        return state;
+      }
+      if(gDoorBoardProtocolCmd.RevRequestFlag)
+      {
+        return state;
+      }
+      
+      if(gDoorBoardProtocolCmd.RevDataCnt < gDoorBoardProtocolCmd.DataLength && 0 != gDoorBoardProtocolCmd.RevDataCnt)
+      {
+        for(i = 0; i < DoorBoardUsartType.RX_Size; i++)
+        {
+          DoorBoardCmdBuffer[5 + gDoorBoardProtocolCmd.RevDataCnt + i] = *(DoorBoardUsartType.RX_pData + i);
+          gDoorBoardProtocolCmd.RevDataCnt ++;
+          if(gDoorBoardProtocolCmd.DataLength == gDoorBoardProtocolCmd.RevDataCnt)
+          {
+            gDoorBoardProtocolCmd.DataCRC16     =(*(DoorBoardUsartType.RX_pData + i + 1) << 8) + *(DoorBoardUsartType.RX_pData + i + 2);
+            if(0x5D != *(DoorBoardUsartType.RX_pData + i + 3))
+            {
+              gDoorBoardProtocolCmd.RevDataCnt          = 0;
+              gDoorBoardProtocolCmd.DataLength          = 0;
+              gDoorBoardProtocolCmd.TotalLength         = 0;
+              return state;
+            }
+            /* here to check CRC16-CCITT inspection code */
+            gDoorBoardProtocolCmd.RevRequestFlag = 1;
+            return state;
+          }
+        }
+        return state;
+      }
+      
+      if(0 == gDoorBoardProtocolCmd.TotalLength)
+      {
+        if(0x5B != *(DoorBoardUsartType.RX_pData))
+        {
+          return state;
+        }
+        
+        if(0xA0 == (*(DoorBoardUsartType.RX_pData + 1) & 0xF0) && 0x5D == *(DoorBoardUsartType.RX_pData + ACKFIXEDCOMMANDLEN - 1))
+        {
+          gDoorBoardProtocolCmd.AckCmdCode             =*(DoorBoardUsartType.RX_pData + 1);
+          gDoorBoardProtocolCmd.AckCmdCode             =*(DoorBoardUsartType.RX_pData + 2);
+          gDoorBoardProtocolCmd.AckCRC16CITT           =(*(DoorBoardUsartType.RX_pData + 3) << 8) + *(DoorBoardUsartType.RX_pData + 4);
+          /* here to add CRC16-CCITT inspection code */
+          gDoorBoardProtocolCmd.RevEchoFlag = 1;
+          return state;
+        }
+        
+        gDoorBoardProtocolCmd.CmdType           =*(DoorBoardUsartType.RX_pData + 1);
+        gDoorBoardProtocolCmd.CmdParam          =*(DoorBoardUsartType.RX_pData + 2);
+        
+        gDoorBoardProtocolCmd.DataLengthLow     =*(DoorBoardUsartType.RX_pData + 4);
+        gDoorBoardProtocolCmd.DataLengthHight   =*(DoorBoardUsartType.RX_pData + 3);
+        
+        DoorBoardCmdBuffer[1]   = gDoorBoardProtocolCmd.CmdType;
+        DoorBoardCmdBuffer[2]   = gDoorBoardProtocolCmd.CmdParam;
+        DoorBoardCmdBuffer[3]   = gDoorBoardProtocolCmd.DataLengthHight;
+        DoorBoardCmdBuffer[4]   = gDoorBoardProtocolCmd.DataLengthLow;
+        
+        gDoorBoardProtocolCmd.DataLength = (gDoorBoardProtocolCmd.DataLengthHight << 8) + gDoorBoardProtocolCmd.DataLengthLow;
+        
+        
+        if(0 == gDoorBoardProtocolCmd.DataLength)
+        {
+          if(0x5D != *(DoorBoardUsartType.RX_pData + REQUESTFIXEDCOMMANDLEN - 1))
+          {
+            return state;
+          }
+          gDoorBoardProtocolCmd.DataCRC16       =*(DoorBoardUsartType.RX_pData + 5) << 8 + *(DoorBoardUsartType.RX_pData + 6);
+          /* Hrere to check CRC16-CCITT */
+          gDoorBoardProtocolCmd.RevRequestFlag  = 1;
+          gDoorBoardProtocolCmd.TotalLength     = REQUESTFIXEDCOMMANDLEN;
+          return state;
+        }
+        
+        for(i = 5; i < DoorBoardUsartType.RX_Size; i++)
+        {
+          DoorBoardCmdBuffer[i] = *(DoorBoardUsartType.RX_pData + i);
+          gDoorBoardProtocolCmd.RevDataCnt ++;
+          if(gDoorBoardProtocolCmd.DataLength == gDoorBoardProtocolCmd.RevDataCnt)
+          {
+            if(0x5D != *(DoorBoardUsartType.RX_pData + REQUESTFIXEDCOMMANDLEN + gDoorBoardProtocolCmd.RevDataCnt -1))
+            {
+              gDoorBoardProtocolCmd.RevDataCnt          = 0;
+              gDoorBoardProtocolCmd.DataLength          = 0;
+              gDoorBoardProtocolCmd.TotalLength         = 0;
+              return state;
+            }
+            gDoorBoardProtocolCmd.DataCRC16 = *(DoorBoardUsartType.RX_pData + i + 1)<<8 + *(DoorBoardUsartType.RX_pData + i + 2);
+            gDoorBoardProtocolCmd.RevRequestFlag = 1;
+            gDoorBoardProtocolCmd.TotalLength = REQUESTFIXEDCOMMANDLEN + gDoorBoardProtocolCmd.DataLength;
+            return state;
+          }
+        } 
+      }      
+      return state;
+    }
+    
+    /*******************************************************************************
+    *
+    *       Function        :DS_SendRequestCmdToCoreBoard()
+    *
+    *       Input           :pPROTOCOLCMD pRequestCmd
+    *
+    *       Return          :DS_StatusTypeDef
+    *
+    *       Description     :--
+    *
+    *
+    *       Data            :2017/12/26
+    *       Author          :bertz
+    *******************************************************************************/
+    DS_StatusTypeDef DS_SendRequestCmdToCoreBoard(pPROTOCOLCMD pRequestCmd)
+    {
+      DS_StatusTypeDef state = DS_OK;
+      if(pRequestCmd->RevRequestFlag)
+      {
+        return state;
+      }
+      state = DS_SendRequestCmd(pRequestCmd, CoreBoardCmdBuffer);
+      state = DS_SendDataToCoreBoard(CoreBoardCmdBuffer,pRequestCmd->TotalLength,0xFFFF);
+      
+      return state;
+    }
+    /*******************************************************************************
+    *
+    *       Function        :DS_SendRequestCmdToDoorBoard()
+    *
+    *       Input           :pPROTOCOLCMD pRequestCmd
+    *
+    *       Return          :DS_StatusTypeDef
+    *
+    *       Description     :--
+    *
+    *
+    *       Data            :2017/12/26
+    *       Author          :bertz
+    *******************************************************************************/
+    DS_StatusTypeDef DS_SendRequestCmdToDoorBoard(pPROTOCOLCMD pRequestCmd)
+    {
+      DS_StatusTypeDef state = DS_OK;
+      if(pRequestCmd->RevRequestFlag)
+      {
+        return state;
+      }
+      state = DS_SendRequestCmd(pRequestCmd, DoorBoardCmdBuffer);  
+      state = DS_SendDataToCoreBoard(DoorBoardCmdBuffer,pRequestCmd->TotalLength,0xFFFF);
+      
+      return state;
+      
+    }
+    
+    /*******************************************************************************
+    *
+    *       Function        :DS_AckRequestCmdFromCoreBoard()
+    *
+    *       Input           :pPROTOCOLCMD pRequestCmd
+    *
+    *       Return          :DS_StatusTypeDef
+    *
+    *       Description     :--
+    *
+    *
+    *       Data            :2017/12/26
+    *       Author          :bertz
+    *******************************************************************************/
+    DS_StatusTypeDef DS_AckRequestCmdFromCoreBoard(pPROTOCOLCMD pRequestCmd)
+    {
+      DS_StatusTypeDef state = DS_OK;
+      
+      //uint16_t tCRC16;
+      //uint8_t CRCDataBuffer[2];
+      //      CRCDataBuffer[0] = pRequestCmd->AckCmdCode;
+      //      CRCDataBuffer[1] = pRequestCmd->AckCode;
+      //      
+      //      tCRC16 = CRC16BIT(CRCDataBuffer,2);
+      //      
+      //      AckCmdBuffer[3] = (uint8_t)(tCRC16 >> 8);
+      //      AckCmdBuffer[4] = (uint8_t)tCRC16;
+      
+      
+      AckCmdBuffer[1] = pRequestCmd->AckCmdCode;
+      AckCmdBuffer[2] = pRequestCmd->AckCode;
+      
+      state = DS_SendDataToCoreBoard(AckCmdBuffer,6,0xFFFF);  
+      return state;
+    }
+    
+        /*******************************************************************************
+    *
+    *       Function        :DS_AckRequestCmdFromCoreBoard()
+    *
+    *       Input           :pPROTOCOLCMD pRequestCmd
+    *
+    *       Return          :DS_StatusTypeDef
+    *
+    *       Description     :--
+    *
+    *
+    *       Data            :2017/12/26
+    *       Author          :bertz
+    *******************************************************************************/
+    DS_StatusTypeDef DS_AckRequestCmdFromDoorBoard(pPROTOCOLCMD pRequestCmd)
+    {
+      DS_StatusTypeDef state = DS_OK;
+      
+      //uint16_t tCRC16;
+      //uint8_t CRCDataBuffer[2];
+      //      CRCDataBuffer[0] = pRequestCmd->AckCmdCode;
+      //      CRCDataBuffer[1] = pRequestCmd->AckCode;
+      //      
+      //      tCRC16 = CRC16BIT(CRCDataBuffer,2);
+      //      
+      //      AckCmdBuffer[3] = (uint8_t)(tCRC16 >> 8);
+      //      AckCmdBuffer[4] = (uint8_t)tCRC16;
+      
+      
+      AckCmdBuffer[1] = pRequestCmd->AckCmdCode;
+      AckCmdBuffer[2] = pRequestCmd->AckCode;
+      
+      state = DS_SendDataToDoorBoard(AckCmdBuffer,6,0xFFFF);  
+      return state;
+    }
+    
+    /*******************************************************************************
+    *
+    *       Function        :DS_HandingCmdFromCoreBoard()
+    *
+    *       Input           :pPROTOCOLCMD pRequestCmd
+    *
+    *       Return          :DS_StatusTypeDef
+    *
+    *       Description     :--
+    *
+    *
+    *       Data            :2017/12/26
+    *       Author          :bertz
+    *******************************************************************************/
+    DS_StatusTypeDef DS_HandingCmdFromCoreBoard(pPROTOCOLCMD pRequestCmd)
+    {
+      DS_StatusTypeDef state = DS_OK;
+      if(1 == pRequestCmd->RevRequestFlag)
+      {
+        switch((pRequestCmd->CmdType) & 0xF0)
+        {
+        case 0xB0: pRequestCmd->AckCmdCode = 0xAB;
+                   if(0xB2 == pRequestCmd->CmdType)
+                   {
+                    state = DS_SendOPenDoorCmd();
+                   }
+                   break;
+                   
+        case 0xC0: pRequestCmd->AckCmdCode = 0xAC;
+                   break;
+        case 0xD0: pRequestCmd->AckCmdCode = 0xAD;
+                   break;
+        case 0xE0: pRequestCmd->AckCmdCode = 0xAE;
+                   break;
+        case 0xF0: pRequestCmd->AckCmdCode = 0xAF;
+                   break;
+        
+        
+        default: state = DS_NOCMD; break;
+        
+        }
+        
+        DS_AckRequestCmdFromCoreBoard(pRequestCmd);
+        
+        pRequestCmd->HandingFlag      = 0;
+        pRequestCmd->RevRequestFlag   = 0;
+        pRequestCmd->DataLength       = 0;
+        pRequestCmd->DataLengthHight  = 0;
+        pRequestCmd->DataLengthLow    = 0;
+        pRequestCmd->RevDataCnt       = 0;
+        pRequestCmd->TotalLength      = 0;
+      }
+      
+      return state;
+    }
+    /*******************************************************************************
+    *
+    *       Function        :DS_HandingCmdFromDoorBoard()
+    *
+    *       Input           :pPROTOCOLCMD pRequestCmd
+    *
+    *       Return          :DS_StatusTypeDef
+    *
+    *       Description     :--
+    *
+    *
+    *       Data            :2017/12/26
+    *       Author          :bertz
+    *******************************************************************************/
+    DS_StatusTypeDef DS_HandingCmdFromDoorBoard(pPROTOCOLCMD pRequestCmd)
+    {
+      DS_StatusTypeDef state = DS_OK;
+      if(1 == pRequestCmd->RevRequestFlag)
+      {
+        switch((pRequestCmd->CmdType) & 0xF0)
+        {
+        case 0xB0: pRequestCmd->AckCmdCode = 0xAB;
+                   break;
+        case 0xC0: pRequestCmd->AckCmdCode = 0xAC;
+                   break;
+        case 0xD0: pRequestCmd->AckCmdCode = 0xAD;
+                   break;
+        case 0xE0: pRequestCmd->AckCmdCode = 0xAE;
+                   break;
+        case 0xF0: pRequestCmd->AckCmdCode = 0xAF;
+                   break;
+        
+        
+        default: state = DS_NOCMD; break;
+        
+        }
+        
+        DS_AckRequestCmdFromDoorBoard(pRequestCmd);
+        
+        pRequestCmd->HandingFlag      = 0;
+        pRequestCmd->RevRequestFlag   = 0;
+        pRequestCmd->DataLength       = 0;
+        pRequestCmd->DataLengthHight  = 0;
+        pRequestCmd->DataLengthLow    = 0;
+        pRequestCmd->RevDataCnt       = 0;
+        pRequestCmd->TotalLength      = 0;
+      }
+      
+      return state;   
+    }
+    
+    /*******************************************************************************
+    *
+    *       Function        :DS_TrySend5TimesCmdToCoreBoard()
+    *
+    *       Input           :pPROTOCOLCMD pRequestCmd
+    *
+    *       Return          :DS_StatusTypeDef 
+    *
+    *       Description     :--
+    *
+    *
+    *       Data            :2017/12/26
+    *       Author          :bertz
+    *******************************************************************************/
+    DS_StatusTypeDef  DS_TrySend5TimesCmdToCoreBoard(pPROTOCOLCMD pRequestCmd)
+    {
+      DS_StatusTypeDef state = DS_OK;
+      if(1 == pRequestCmd->RevOrSendFlag)
+      {
+        if(1 == pRequestCmd->RevEchoFlag)
+        {
+          pRequestCmd->HandingFlag    = 0;
+          pRequestCmd->RevOrSendFlag  = 0;
+          pRequestCmd->SendTimesCnt   = 0;
+          pRequestCmd->RevEchoFlag    = 0;
+          pRequestCmd->RevRequestFlag   = 0;
+          pRequestCmd->DataLength       = 0;
+          pRequestCmd->DataLengthHight  = 0;
+          pRequestCmd->DataLengthLow    = 0;
+          pRequestCmd->RevDataCnt       = 0;
+          pRequestCmd->TotalLength      = 0;
+        }
+        else
+        {
+          if(pRequestCmd->SendTimesCnt > 4)
+          {
+            //³¬Ê±´íÎó
+            pRequestCmd->HandingFlag = 0;
+            pRequestCmd->RevOrSendFlag = 0;
+            pRequestCmd->SendTimesCnt = 0;
+            pRequestCmd->RevEchoFlag = 0;
+            pRequestCmd->RevRequestFlag   = 0;
+            pRequestCmd->DataLength       = 0;
+            pRequestCmd->DataLengthHight  = 0;
+            pRequestCmd->DataLengthLow    = 0;
+            pRequestCmd->RevDataCnt       = 0;
+            pRequestCmd->TotalLength      = 0;
+          }
+          else
+          {
+            state = DS_SendDataToCoreBoard(CoreBoardCmdBuffer,pRequestCmd->TotalLength,0xFFFF);
+            (pRequestCmd->SendTimesCnt)++;
+          }
+        }
+      }
+      return state;  
+    }
+    
+    /*******************************************************************************
+    *
+    *       Function        :DS_TrySend5TimesCmdToDoorBoard()
+    *
+    *       Input           :pPROTOCOLCMD pRequestCmd
+    *
+    *       Return          :DS_StatusTypeDef
+    *
+    *       Description     :--
+    *
+    *
+    *       Data            :2017/12/26
+    *       Author          :bertz
+    *******************************************************************************/
+    DS_StatusTypeDef DS_TrySend5TimesCmdToDoorBoard(pPROTOCOLCMD pRequestCmd)
+    {
+      DS_StatusTypeDef state = DS_OK;
+      if(1 == pRequestCmd->RevOrSendFlag)
+      {
+        if(1 == pRequestCmd->RevEchoFlag)
+        {
+          pRequestCmd->HandingFlag    = 0;
+          pRequestCmd->RevOrSendFlag  = 0;
+          pRequestCmd->SendTimesCnt   = 0;
+          pRequestCmd->RevEchoFlag    = 0;
+          pRequestCmd->RevRequestFlag   = 0;
+          pRequestCmd->DataLength       = 0;
+          pRequestCmd->DataLengthHight  = 0;
+          pRequestCmd->DataLengthLow    = 0;
+          pRequestCmd->RevDataCnt       = 0;
+          pRequestCmd->TotalLength      = 0;
+        }
+        else
+        {
+          if(pRequestCmd->SendTimesCnt > 4)
+          {
+            //³¬Ê±´íÎó
+            pRequestCmd->HandingFlag = 0;
+            pRequestCmd->RevOrSendFlag = 0;
+            pRequestCmd->SendTimesCnt = 0;
+            pRequestCmd->RevEchoFlag = 0;
+            pRequestCmd->RevRequestFlag   = 0;
+            pRequestCmd->DataLength       = 0;
+            pRequestCmd->DataLengthHight  = 0;
+            pRequestCmd->DataLengthLow    = 0;
+            pRequestCmd->RevDataCnt       = 0;
+            pRequestCmd->TotalLength      = 0;
+          }
+          else
+          {
+            state = DS_SendDataToDoorBoard(DoorBoardCmdBuffer,pRequestCmd->TotalLength,0xFFFF);
+            (pRequestCmd->SendTimesCnt)++;
+          }
+        }
+      }   
+      return state; 
+    }
+    
+    /*******************************************************************************
+    *
+    *       Function        :DS_Test()
+    *
+    *       Input           :void
+    *
+    *       Return          :DS_StatusTypeDef
+    *
+    *       Description     :--
+    *
+    *
+    *       Data            :2017/12/26
+    *       Author          :bertz
+    *******************************************************************************/
+    DS_StatusTypeDef DS_Test(void)
+    {
+      DS_StatusTypeDef state = DS_OK;
+      uint8_t testBuffer[16] = {0x5B,0xFF,0x01,0x00,0x08,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0xFF,0xFF,0x5D};
+      
+      
+      return state;
+    }
+
+
+
+
+
+
+    
 
 
 
