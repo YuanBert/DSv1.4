@@ -75,7 +75,7 @@ DS_StatusTypeDef DS_GentleSensorInit(void)
 
 /*******************************************************************************
 *
-*       Function        :DS_GentleSensorInit()
+*       Function        :DS_GentleSensorCheck()
 *
 *       Input           :void
 *

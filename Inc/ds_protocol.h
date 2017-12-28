@@ -51,7 +51,7 @@
 #define DS_CMD_LEN                    5
 #define DS_RX_LEN                     2048      //Accept the buffer size
 #define DS_DATA_LEN                   2048      //
-#define REQUESTFIXEDCOMMANDLEN        8         //Header + CmdType + CmdParam + DataLength + XOR8Bits + End
+#define REQUESTFIXEDCOMMANDLEN        7         //Header + CmdType + CmdParam + DataLength + XOR8Bits + End
 #define ACKFIXEDCOMMANDLEN            6         //Header + AckCmdCode + AckCodeH + XOR8Bits  + End
    
    /** enum: DS_StatusTypeDef

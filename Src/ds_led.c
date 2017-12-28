@@ -52,7 +52,7 @@
    *
    *       Function        :DS_LED_Init()
    *
-   *       Input           :p
+   *       Input           :
    *
    *       Return          :
    *
