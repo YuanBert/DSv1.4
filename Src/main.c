@@ -120,6 +120,8 @@ int main(void)
   MX_NVIC_Init();
 
   /* USER CODE BEGIN 2 */
+  DS_LED_Init();
+  
   HAL_TIM_Base_Start_IT(&htim4);
   HAL_TIM_Base_Start_IT(&htim5);
   DS_GentleSensorInit();
@@ -128,6 +130,7 @@ int main(void)
   HAL_TIM_Base_Start_IT(&htim4);
   HAL_TIM_Base_Start_IT(&htim5);
   
+  DS_RUNNINGLED_ON();
   
   
   /* USER CODE END 2 */

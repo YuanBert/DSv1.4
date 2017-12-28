@@ -51,8 +51,8 @@
 #define DS_CMD_LEN                    5
 #define DS_RX_LEN                     2048      //Accept the buffer size
 #define DS_DATA_LEN                   2048      //
-#define REQUESTFIXEDCOMMANDLEN        8         //Header + CmdType + CmdParam + DataLength + CRC16 + End
-#define ACKFIXEDCOMMANDLEN            6         //Header + AckCmdCode + AckCode + CRC16  + End
+#define REQUESTFIXEDCOMMANDLEN        8         //Header + CmdType + CmdParam + DataLength + XOR8Bits + End
+#define ACKFIXEDCOMMANDLEN            6         //Header + AckCmdCode + AckCodeH + XOR8Bits  + End
    
    /** enum: DS_StatusTypeDef
    **
@@ -113,14 +113,15 @@
      uint8_t     CmdParam;
      uint8_t     DataLengthLow;
      uint8_t     DataLengthHight;
-     uint16_t    DataCRC16;
+     uint8_t     XOR8BIT;
      uint16_t    DataLength;
      uint16_t    TotalLength;
      
      uint8_t     HandingFlag;
      uint8_t     AckCmdCode;
-     uint8_t     AckCode;
-     uint16_t    AckCRC16CITT;
+     uint8_t     AckCodeH;
+     uint8_t     AckCodeL;
+     uint8_t     AckXOR8BIT;
      
      uint16_t    RevDataCnt;
      uint8_t     RevOrSendFlag;

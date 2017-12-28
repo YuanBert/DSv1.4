@@ -62,20 +62,6 @@
    
    
 /* USER CODE BEGIN Private defines */
-   /*******************************************************************************
-   *
-   *       Function        :DS_LED_Init()
-   *
-   *       Input           :p
-   *
-   *       Return          :
-   *
-   *       Description     :--≥ı ºªØLED
-   *
-   *
-   *       Data            :2017/12/25
-   *       Author          :bertz
-   *******************************************************************************/
    void DS_LED_Init(void);
    void DS_RUNNINGLED_ON(void);
    void DS_RUNNINGLED_OFF(void);

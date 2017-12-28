@@ -59,6 +59,18 @@
     extern PROTOCOLCMD  gCoreBoardProtocolCmd;
     extern PROTOCOLCMD  gDoorBoardProtocolCmd;
     
+    static uint8_t getXORCode(uint8_t* pData,uint16_t len)
+    {
+      uint8_t ret;
+      uint16_t i;
+      ret = pData[0];
+      for(i = 1; i < len; i++)
+      {
+        ret ^=pData[i];
+      }
+      return ret;
+    }
+    
     static DS_StatusTypeDef DS_SendOPenDoorCmd(void)
     {
       DS_StatusTypeDef state = DS_OK;
@@ -68,7 +80,7 @@
       gDoorBoardProtocolCmd.DataLengthLow = 0;
       gDoorBoardProtocolCmd.DataLength = 0;
       state = DS_SendRequestCmdToDoorBoard(&gDoorBoardProtocolCmd);
-      gDoorBoardProtocolCmd.CmdParam = 0xB2;
+      gCoreBoardProtocolCmd.AckCodeL = state;
       return state;
     }
     
@@ -89,7 +101,7 @@
     static DS_StatusTypeDef DS_SendRequestCmd(pPROTOCOLCMD pRequestCmd,uint8_t *pCmdDataBuffer)
     {
       uint16_t dataLength = 0;
-      //uint16_t tempCRC    = 0;
+      uint8_t   tempXOR = 0;
       DS_StatusTypeDef state = DS_OK;
       if(0 == pRequestCmd->HandingFlag)
       {
@@ -100,15 +112,14 @@
         *(pCmdDataBuffer + 4)= pRequestCmd->DataLengthLow;
         dataLength = pRequestCmd->DataLength;
         *(pCmdDataBuffer + REQUESTFIXEDCOMMANDLEN + dataLength - 1) = 0x5D;
-        
-        /* Calculate CRC */
-        /*
-        tempCRC = CRC16BIT(pCmdDataBuffer + 1, 4 + dataLength);
-        *(pCmdDataBuffer + dataLength + REQUESTFIXEDCOMMANDLEN - 3) = (uint8_t)(tempCRC >> 8);
-        *(pCmdDataBuffer + dataLength + REQUESTFIXEDCOMMANDLEN - 2) = (uint8_t)tempCRC;
-        */
-        
         pRequestCmd->TotalLength = dataLength + REQUESTFIXEDCOMMANDLEN;
+        
+        /* Calculate XOR */
+        tempXOR = getXORCode(pCmdDataBuffer + 1, pRequestCmd->TotalLength - 3);
+        
+        *(pCmdDataBuffer + dataLength + REQUESTFIXEDCOMMANDLEN - 2) = (uint8_t)tempXOR;
+        
+        
         pRequestCmd->RevOrSendFlag = 1;
         pRequestCmd->RevEchoFlag = 0;
       }
@@ -249,6 +260,10 @@
     {
       DS_StatusTypeDef state = DS_OK;
       state = (DS_StatusTypeDef)HAL_UART_Transmit_DMA(&huart1, pData,size);
+      if(DS_OK != state)
+      {
+        state = DS_ERROR;
+      }
       return state;
     }
     
@@ -290,6 +305,7 @@
     DS_StatusTypeDef DS_HandingUartDataFromCoreBoard(void)
     {
       DS_StatusTypeDef state = DS_OK;
+      uint8_t xorTemp;
       uint16_t i;
       if(!CoreBoardUsartType.RX_Flag)
       {
@@ -313,15 +329,23 @@
           gCoreBoardProtocolCmd.RevDataCnt ++;
           if(gCoreBoardProtocolCmd.DataLength == gCoreBoardProtocolCmd.RevDataCnt)
           {
-            gCoreBoardProtocolCmd.DataCRC16     =(*(CoreBoardUsartType.RX_pData + i + 1) << 8) + *(CoreBoardUsartType.RX_pData + i + 2);
-            if(0x5D != *(CoreBoardUsartType.RX_pData + i + 3))
+            gCoreBoardProtocolCmd.XOR8BIT     =*(CoreBoardUsartType.RX_pData + i + 1);
+            if(0x5D != *(CoreBoardUsartType.RX_pData + i + 2))
             {
               gCoreBoardProtocolCmd.RevDataCnt          = 0;
               gCoreBoardProtocolCmd.DataLength          = 0;
               gCoreBoardProtocolCmd.TotalLength         = 0;
               return state;
             }
-            /* here to check CRC16-CCITT inspection code */
+            gCoreBoardProtocolCmd.TotalLength   = gCoreBoardProtocolCmd.DataLength + REQUESTFIXEDCOMMANDLEN;
+            /* here to check XOR code */
+            xorTemp = getXORCode(CoreBoardCmdBuffer + 1,gCoreBoardProtocolCmd.TotalLength - 3);
+            if(gCoreBoardProtocolCmd.XOR8BIT != xorTemp)
+            {
+              gCoreBoardProtocolCmd.TotalLength = 0;
+              return state;
+            }
+            
             gCoreBoardProtocolCmd.RevRequestFlag = 1;
             return state;
           }
@@ -338,11 +362,19 @@
         
         if(0xA0 == (*(CoreBoardUsartType.RX_pData + 1) & 0xF0) && 0x5D == *(CoreBoardUsartType.RX_pData + ACKFIXEDCOMMANDLEN - 1))
         {
-          gCoreBoardProtocolCmd.AckCmdCode             =*(CoreBoardUsartType.RX_pData + 1);
-          gCoreBoardProtocolCmd.AckCmdCode             =*(CoreBoardUsartType.RX_pData + 2);
-          gCoreBoardProtocolCmd.AckCRC16CITT           =(*(CoreBoardUsartType.RX_pData + 3) << 8) + *(CoreBoardUsartType.RX_pData + 4);
-          /* here to add CRC16-CCITT inspection code */
+          gCoreBoardProtocolCmd.AckCmdCode           =*(CoreBoardUsartType.RX_pData + 1);
+          gCoreBoardProtocolCmd.AckCodeH             =*(CoreBoardUsartType.RX_pData + 2);
+          gCoreBoardProtocolCmd.AckCodeL             =*(CoreBoardUsartType.RX_pData + 3);
+          gCoreBoardProtocolCmd.AckXOR8BIT           =*(CoreBoardUsartType.RX_pData + 4);
+          
+          /* Here to add XOR code */
+          xorTemp = getXORCode(CoreBoardUsartType.RX_pData + 1, 3);
+          if(gCoreBoardProtocolCmd.AckXOR8BIT != xorTemp)
+          {
+            return state;
+          }
           gCoreBoardProtocolCmd.RevEchoFlag = 1;
+          
           return state;
         }
         
@@ -366,10 +398,17 @@
           {
             return state;
           }
-          gCoreBoardProtocolCmd.DataCRC16       =*(CoreBoardUsartType.RX_pData + 5) << 8 + *(CoreBoardUsartType.RX_pData + 6);
-          /* Hrere to check CRC16-CCITT */
-          gCoreBoardProtocolCmd.RevRequestFlag  = 1;
+          gCoreBoardProtocolCmd.XOR8BIT         =*(CoreBoardUsartType.RX_pData + 5);
           gCoreBoardProtocolCmd.TotalLength     = REQUESTFIXEDCOMMANDLEN;
+          /* here to check XOR */
+          xorTemp = getXORCode(CoreBoardCmdBuffer + 1, gCoreBoardProtocolCmd.TotalLength - 3);
+          if(gCoreBoardProtocolCmd.XOR8BIT != xorTemp)
+          {
+            gCoreBoardProtocolCmd.TotalLength   = 0;
+            return state;
+          }
+          gCoreBoardProtocolCmd.RevRequestFlag  = 1;
+          
           return state;
         }
         
@@ -386,9 +425,16 @@
               gCoreBoardProtocolCmd.TotalLength         = 0;
               return state;
             }
-            gCoreBoardProtocolCmd.DataCRC16 = *(CoreBoardUsartType.RX_pData + i + 1)<<8 + *(CoreBoardUsartType.RX_pData + i + 2);
-            gCoreBoardProtocolCmd.RevRequestFlag = 1;
+            gCoreBoardProtocolCmd.XOR8BIT     = *(CoreBoardUsartType.RX_pData + i + 1);
             gCoreBoardProtocolCmd.TotalLength = REQUESTFIXEDCOMMANDLEN + gCoreBoardProtocolCmd.DataLength;
+            /* here add to check XOR */
+            xorTemp = getXORCode(CoreBoardCmdBuffer + 1,gCoreBoardProtocolCmd.TotalLength - 3);
+            if(gCoreBoardProtocolCmd.XOR8BIT != xorTemp)
+            {
+              gCoreBoardProtocolCmd.TotalLength = 0;
+              return state;
+            }
+            gCoreBoardProtocolCmd.RevRequestFlag = 1;
             return state;
           }
         } 
@@ -413,7 +459,9 @@
     DS_StatusTypeDef DS_HandingUartDataFromDoorBoard(void)
     {
       DS_StatusTypeDef state = DS_OK;
+      uint8_t xorTemp;
       uint16_t i;
+      
       if(!DoorBoardUsartType.RX_Flag)
       {
         return state;
@@ -436,15 +484,22 @@
           gDoorBoardProtocolCmd.RevDataCnt ++;
           if(gDoorBoardProtocolCmd.DataLength == gDoorBoardProtocolCmd.RevDataCnt)
           {
-            gDoorBoardProtocolCmd.DataCRC16     =(*(DoorBoardUsartType.RX_pData + i + 1) << 8) + *(DoorBoardUsartType.RX_pData + i + 2);
-            if(0x5D != *(DoorBoardUsartType.RX_pData + i + 3))
+            gDoorBoardProtocolCmd.XOR8BIT     =*(DoorBoardUsartType.RX_pData + i + 1);
+            if(0x5D != *(DoorBoardUsartType.RX_pData + i + 2))
             {
               gDoorBoardProtocolCmd.RevDataCnt          = 0;
               gDoorBoardProtocolCmd.DataLength          = 0;
               gDoorBoardProtocolCmd.TotalLength         = 0;
               return state;
             }
-            /* here to check CRC16-CCITT inspection code */
+            gDoorBoardProtocolCmd.TotalLength = gDoorBoardProtocolCmd.DataLength + REQUESTFIXEDCOMMANDLEN;
+            /* here to check XOR code */
+            xorTemp = getXORCode(DoorBoardCmdBuffer + 1, gDoorBoardProtocolCmd.TotalLength - 3);
+            if(gDoorBoardProtocolCmd.XOR8BIT != xorTemp)
+            {
+              gDoorBoardProtocolCmd.TotalLength = 0;
+              return state;
+            }
             gDoorBoardProtocolCmd.RevRequestFlag = 1;
             return state;
           }
@@ -462,9 +517,16 @@
         if(0xA0 == (*(DoorBoardUsartType.RX_pData + 1) & 0xF0) && 0x5D == *(DoorBoardUsartType.RX_pData + ACKFIXEDCOMMANDLEN - 1))
         {
           gDoorBoardProtocolCmd.AckCmdCode             =*(DoorBoardUsartType.RX_pData + 1);
-          gDoorBoardProtocolCmd.AckCmdCode             =*(DoorBoardUsartType.RX_pData + 2);
-          gDoorBoardProtocolCmd.AckCRC16CITT           =(*(DoorBoardUsartType.RX_pData + 3) << 8) + *(DoorBoardUsartType.RX_pData + 4);
-          /* here to add CRC16-CCITT inspection code */
+          gDoorBoardProtocolCmd.AckCodeH               =*(DoorBoardUsartType.RX_pData + 2);
+          gDoorBoardProtocolCmd.AckCodeL               =*(DoorBoardUsartType.RX_pData + 3);
+          gDoorBoardProtocolCmd.AckXOR8BIT             =*(DoorBoardUsartType.RX_pData + 4);
+          
+          /* Here to add XOR code */
+          xorTemp = getXORCode(DoorBoardUsartType.RX_pData + 1, 3);
+          if(gDoorBoardProtocolCmd.AckXOR8BIT != xorTemp)
+          {
+            return state;
+          }
           gDoorBoardProtocolCmd.RevEchoFlag = 1;
           return state;
         }
@@ -489,10 +551,16 @@
           {
             return state;
           }
-          gDoorBoardProtocolCmd.DataCRC16       =*(DoorBoardUsartType.RX_pData + 5) << 8 + *(DoorBoardUsartType.RX_pData + 6);
-          /* Hrere to check CRC16-CCITT */
+          gDoorBoardProtocolCmd.XOR8BIT       =*(DoorBoardUsartType.RX_pData + 5);
+          gDoorBoardProtocolCmd.TotalLength   = REQUESTFIXEDCOMMANDLEN;
+          /* here to check XOR */
+          xorTemp = getXORCode(DoorBoardCmdBuffer + 1,gDoorBoardProtocolCmd.TotalLength - 3);
+          if(gDoorBoardProtocolCmd.XOR8BIT != xorTemp)
+          {
+            gDoorBoardProtocolCmd.TotalLength    = 0;
+            return state;
+          }
           gDoorBoardProtocolCmd.RevRequestFlag  = 1;
-          gDoorBoardProtocolCmd.TotalLength     = REQUESTFIXEDCOMMANDLEN;
           return state;
         }
         
@@ -509,9 +577,17 @@
               gDoorBoardProtocolCmd.TotalLength         = 0;
               return state;
             }
-            gDoorBoardProtocolCmd.DataCRC16 = *(DoorBoardUsartType.RX_pData + i + 1)<<8 + *(DoorBoardUsartType.RX_pData + i + 2);
+            gDoorBoardProtocolCmd.XOR8BIT        = *(DoorBoardUsartType.RX_pData + i + 1);
+            gDoorBoardProtocolCmd.TotalLength    = REQUESTFIXEDCOMMANDLEN + gDoorBoardProtocolCmd.DataLength;
+            
+            /* here add to check XOR */
+            xorTemp = getXORCode(DoorBoardCmdBuffer + 1, gDoorBoardProtocolCmd.TotalLength - 3);
+            if(gDoorBoardProtocolCmd.XOR8BIT != xorTemp)
+            {
+              gDoorBoardProtocolCmd.TotalLength = 0;
+              return state;
+            }
             gDoorBoardProtocolCmd.RevRequestFlag = 1;
-            gDoorBoardProtocolCmd.TotalLength = REQUESTFIXEDCOMMANDLEN + gDoorBoardProtocolCmd.DataLength;
             return state;
           }
         } 
@@ -590,20 +666,10 @@
     DS_StatusTypeDef DS_AckRequestCmdFromCoreBoard(pPROTOCOLCMD pRequestCmd)
     {
       DS_StatusTypeDef state = DS_OK;
-      
-      //uint16_t tCRC16;
-      //uint8_t CRCDataBuffer[2];
-      //      CRCDataBuffer[0] = pRequestCmd->AckCmdCode;
-      //      CRCDataBuffer[1] = pRequestCmd->AckCode;
-      //      
-      //      tCRC16 = CRC16BIT(CRCDataBuffer,2);
-      //      
-      //      AckCmdBuffer[3] = (uint8_t)(tCRC16 >> 8);
-      //      AckCmdBuffer[4] = (uint8_t)tCRC16;
-      
-      
       AckCmdBuffer[1] = pRequestCmd->AckCmdCode;
-      AckCmdBuffer[2] = pRequestCmd->AckCode;
+      AckCmdBuffer[2] = pRequestCmd->AckCodeH;
+      AckCmdBuffer[3] = pRequestCmd->AckCodeL;
+      AckCmdBuffer[4] = getXORCode(AckCmdBuffer + 1, 3);
       
       state = DS_SendDataToCoreBoard(AckCmdBuffer,6,0xFFFF);  
       return state;
@@ -627,19 +693,10 @@
     {
       DS_StatusTypeDef state = DS_OK;
       
-      //uint16_t tCRC16;
-      //uint8_t CRCDataBuffer[2];
-      //      CRCDataBuffer[0] = pRequestCmd->AckCmdCode;
-      //      CRCDataBuffer[1] = pRequestCmd->AckCode;
-      //      
-      //      tCRC16 = CRC16BIT(CRCDataBuffer,2);
-      //      
-      //      AckCmdBuffer[3] = (uint8_t)(tCRC16 >> 8);
-      //      AckCmdBuffer[4] = (uint8_t)tCRC16;
-      
-      
       AckCmdBuffer[1] = pRequestCmd->AckCmdCode;
-      AckCmdBuffer[2] = pRequestCmd->AckCode;
+      AckCmdBuffer[2] = pRequestCmd->AckCodeH;
+      AckCmdBuffer[3] = pRequestCmd->AckCodeL;
+      AckCmdBuffer[4] = getXORCode(AckCmdBuffer + 1, 3);
       
       state = DS_SendDataToDoorBoard(AckCmdBuffer,6,0xFFFF);  
       return state;
@@ -669,7 +726,8 @@
         case 0xB0: pRequestCmd->AckCmdCode = 0xAB;
                    if(0xB2 == pRequestCmd->CmdType)
                    {
-                    state = DS_SendOPenDoorCmd();
+                     pRequestCmd->AckCodeH   = 0x02;
+                     state = DS_SendOPenDoorCmd();
                    }
                    break;
                    
@@ -884,7 +942,6 @@
     DS_StatusTypeDef DS_Test(void)
     {
       DS_StatusTypeDef state = DS_OK;
-      uint8_t testBuffer[16] = {0x5B,0xFF,0x01,0x00,0x08,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0xFF,0xFF,0x5D};
       
       
       return state;
