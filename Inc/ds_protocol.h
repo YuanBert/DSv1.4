@@ -133,6 +133,7 @@
    typedef struct sProtocolCmd       PROTOCOLCMD,        *pPROTOCOLCMD;
    typedef struct sUsartReciveType   USARTRECIVETYPE,    *pUSARTRECIVETYPE;
    
+   DS_StatusTypeDef DS_SendOPenDoorCmd(void);
    DS_StatusTypeDef DS_CoreBoardProtocolInit(void);
    DS_StatusTypeDef DS_DoorBoardProtocolInit(void);
    DS_StatusTypeDef DS_SendDataToCoreBoard(uint8_t* pData, uint16_t size, uint32_t Timeout);

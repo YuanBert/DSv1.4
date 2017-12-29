@@ -63,6 +63,8 @@ PROTOCOLCMD  gCoreBoardProtocolCmd;
 PROTOCOLCMD  gDoorBoardProtocolCmd;
 GPIOSTATUSDETECTION gGentleSensorStatusDetection;
 
+uint8_t gSendOpenFlag = 0;
+
 uint16_t    gTIM4Cnt;
 uint8_t     gTIM4CntFlag;
 
@@ -156,6 +158,11 @@ int main(void)
     DS_TrySend5TimesCmdToCoreBoard(&gCoreBoardProtocolCmd);
     DS_TrySend5TimesCmdToDoorBoard(&gDoorBoardProtocolCmd);
     gTIM5CntFlag = 0;
+  }
+  if(gSendOpenFlag)
+  {
+    DS_SendOPenDoorCmd();
+    gSendOpenFlag = 0;
   }
 
   }

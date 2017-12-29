@@ -58,7 +58,7 @@
     
     extern PROTOCOLCMD  gCoreBoardProtocolCmd;
     extern PROTOCOLCMD  gDoorBoardProtocolCmd;
-    
+    extern uint8_t gSendOpenFlag;
     static uint8_t getXORCode(uint8_t* pData,uint16_t len)
     {
       uint8_t ret;
@@ -71,7 +71,7 @@
       return ret;
     }
     
-    static DS_StatusTypeDef DS_SendOPenDoorCmd(void)
+   DS_StatusTypeDef DS_SendOPenDoorCmd(void)
     {
       DS_StatusTypeDef state = DS_OK;
       gDoorBoardProtocolCmd.CmdParam = 0x01;
@@ -727,7 +727,7 @@
                    if(0xB2 == pRequestCmd->CmdType)
                    {
                      pRequestCmd->AckCodeH   = 0x02;
-                     state = DS_SendOPenDoorCmd();
+                     gSendOpenFlag = 1;
                    }
                    break;
                    
