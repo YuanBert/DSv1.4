@@ -70,6 +70,7 @@ uint8_t     gTIM4CntFlag;
 
 uint16_t    gTIM5Cnt;
 uint8_t     gTIM5CntFlag;
+uint16_t    gTIM5LedCnt;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -145,7 +146,6 @@ int main(void)
 
   /* USER CODE BEGIN 3 */
   DS_GentleSensorCheck();
-  DS_LEDS_TEST();
   DS_HandingUartDataFromCoreBoard();
   DS_HandingCmdFromCoreBoard(&gCoreBoardProtocolCmd);
   
@@ -300,6 +300,26 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   /* 1ms */
   if(htim5.Instance == htim->Instance)
   {
+    gTIM5LedCnt++;
+    if(gTIM5LedCnt > 50)
+    {
+      gTIM5LedCnt = 0;
+      if(gLEDsCarFlag)
+      {
+        DS_LED_OUT_ON();   
+        DS_ATMOSPHERELED1_TOGGLE();
+        DS_ATMOSPHERELED2_TOGGLE();
+        DS_COMMUNICATIONLED_TORGGLE();
+      }
+      else
+      {
+        DS_LED_OUT_OFF();
+        DS_ATMOSPHERELED1_ON();
+        DS_ATMOSPHERELED1_OFF();
+        DS_COMMUNICATIONLED_OFF();
+      }
+    }
+    
     gTIM5Cnt++;
     if(gTIM5Cnt > 300)
     {
