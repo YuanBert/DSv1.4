@@ -389,7 +389,6 @@
    if(gLEDsCarFlag)
    {
      DS_LED_OUT_ON();   
-     HAL_Delay(50);
      DS_ATMOSPHERELED1_TOGGLE();
      DS_ATMOSPHERELED2_TOGGLE();
      DS_COMMUNICATIONLED_TORGGLE();

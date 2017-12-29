@@ -284,7 +284,10 @@
     DS_StatusTypeDef DS_SendDataToDoorBoard(uint8_t *pData, uint16_t size,uint32_t Timeout)
     {
       DS_StatusTypeDef state = DS_OK;
+      HAL_GPIO_WritePin(CTR485_EN_GPIO_Port,CTR485_EN_Pin,GPIO_PIN_SET);
       state = (DS_StatusTypeDef)HAL_UART_Transmit_DMA(&huart2, pData,size);
+      HAL_Delay(1);
+      HAL_GPIO_WritePin(CTR485_EN_GPIO_Port,CTR485_EN_Pin,GPIO_PIN_RESET);
       return state;
     }
     

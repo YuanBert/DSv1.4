@@ -71,6 +71,7 @@ uint8_t     gTIM4CntFlag;
 uint16_t    gTIM5Cnt;
 uint8_t     gTIM5CntFlag;
 uint16_t    gTIM5LedCnt;
+uint8_t     gTIM5LedFlag;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -142,28 +143,35 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-  /* USER CODE END WHILE */
-
-  /* USER CODE BEGIN 3 */
-  DS_GentleSensorCheck();
-  DS_HandingUartDataFromCoreBoard();
-  DS_HandingCmdFromCoreBoard(&gCoreBoardProtocolCmd);
-  
-  DS_HandingUartDataFromDoorBoard();
-  DS_HandingCmdFromDoorBoard(&gDoorBoardProtocolCmd);
-  
-  if(1 == gTIM5CntFlag)
-  {
-    DS_TrySend5TimesCmdToCoreBoard(&gCoreBoardProtocolCmd);
-    DS_TrySend5TimesCmdToDoorBoard(&gDoorBoardProtocolCmd);
-    gTIM5CntFlag = 0;
-  }
-  if(gSendOpenFlag)
-  {
-    DS_SendOPenDoorCmd();
-    gSendOpenFlag = 0;
-  }
-
+    /* USER CODE END WHILE */
+    
+    /* USER CODE BEGIN 3 */
+    if(gTIM5LedFlag)
+    {
+      DS_LEDS_TEST();
+      gTIM5LedFlag = 0;
+    }
+    
+    DS_GentleSensorCheck();
+    DS_HandingUartDataFromCoreBoard();
+    DS_HandingCmdFromCoreBoard(&gCoreBoardProtocolCmd);
+    
+    DS_HandingUartDataFromDoorBoard();
+    DS_HandingCmdFromDoorBoard(&gDoorBoardProtocolCmd);
+    
+    if(1 == gTIM5CntFlag)
+    {
+      DS_TrySend5TimesCmdToCoreBoard(&gCoreBoardProtocolCmd);
+      DS_TrySend5TimesCmdToDoorBoard(&gDoorBoardProtocolCmd);
+      gTIM5CntFlag = 0;
+    }
+    
+    if(gSendOpenFlag)
+    {
+      DS_SendOPenDoorCmd();
+      gSendOpenFlag = 0;
+    }
+    
   }
   /* USER CODE END 3 */
 
@@ -303,23 +311,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     gTIM5LedCnt++;
     if(gTIM5LedCnt > 50)
     {
+      gTIM5LedFlag = 1;
       gTIM5LedCnt = 0;
-      if(gLEDsCarFlag)
-      {
-        DS_LED_OUT_ON();   
-        DS_ATMOSPHERELED1_TOGGLE();
-        DS_ATMOSPHERELED2_TOGGLE();
-        DS_COMMUNICATIONLED_TORGGLE();
-      }
-      else
-      {
-        DS_LED_OUT_OFF();
-        DS_ATMOSPHERELED1_ON();
-        DS_ATMOSPHERELED1_OFF();
-        DS_COMMUNICATIONLED_OFF();
-      }
     }
-    
+
     gTIM5Cnt++;
     if(gTIM5Cnt > 300)
     {

@@ -46,14 +46,14 @@
 #include "main.h"
 #include "stm32f1xx_hal.h"
    
-#define MCU_LED_ON                      GPIO_PIN_SET
-#define MCU_LED_OFF                     GPIO_PIN_RESET
+#define MCU_LED_OFF                     GPIO_PIN_SET
+#define MCU_LED_ON                     GPIO_PIN_RESET
 #define MCU_FAN_ON                      GPIO_PIN_SET
 #define MCU_FAN_OFF                     GPIO_PIN_RESET
-#define RunningLED_ON                   GPIO_PIN_SET
-#define RunningLED_OFF                  GPIO_PIN_RESET
-#define CommunicationLED_ON             GPIO_PIN_SET
-#define CommunicationLED_OFF            GPIO_PIN_RESET
+#define RunningLED_OFF                   GPIO_PIN_SET
+#define RunningLED_ON                  GPIO_PIN_RESET
+#define CommunicationLED_OFF             GPIO_PIN_SET
+#define CommunicationLED_ON            GPIO_PIN_RESET
 #define MCUAtmosphereLED1_ON            GPIO_PIN_SET
 #define MCUAtmosphereLED1_OFF           GPIO_PIN_RESET
 #define MCUAtmosphereLED2_ON            GPIO_PIN_SET
