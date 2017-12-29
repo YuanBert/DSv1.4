@@ -50,7 +50,7 @@
 extern PROTOCOLCMD  gCoreBoardProtocolCmd;
 extern PROTOCOLCMD  gDoorBoardProtocolCmd;
 extern GPIOSTATUSDETECTION gGentleSensorStatusDetection;
-
+ extern uint8_t gLEDsCarFlag;
 /*******************************************************************************
 *
 *       Function        :DS_GentleSensorInit()
@@ -93,6 +93,7 @@ DS_StatusTypeDef DS_GentleSensorCheck(void)
   if(0 == gGentleSensorStatusDetection.GpioCheckedFlag || gGentleSensorStatusDetection.GpioValidLogicTimeCnt < 100)
   {
     /* Turn off the flash if the car leaves or if the flash blinks longer than the set value */
+    gLEDsCarFlag = 0;
     DS_LED_OUT_OFF();
     
   }
@@ -113,6 +114,7 @@ DS_StatusTypeDef DS_GentleSensorCheck(void)
   {
     gGentleSensorStatusDetection.GpioValidLogicTimeCnt = 90100;
     /* Flash open*/
+    gLEDsCarFlag = 1;
     DS_LED_OUT_ON();
     
     /* Report the arrival of car */

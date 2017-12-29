@@ -48,6 +48,7 @@
   /* Includes ------------------------------------------------------------------*/
 #include "ds_led.h"
 
+ extern uint8_t gLEDsCarFlag;
        /*******************************************************************************
    *
    *       Function        :DS_LED_Init()
@@ -385,18 +386,21 @@
  *******************************************************************************/
  void DS_LEDS_TEST(void)
  {
-    HAL_Delay(5);
-    DS_COMMUNICATIONLED_TORGGLE();
-    HAL_Delay(5);
-    DS_ATMOSPHERELED1_TOGGLE();
-    HAL_Delay(5);
-    DS_ATMOSPHERELED2_TOGGLE();
-    HAL_Delay(5);
-    DS_LED_OUT_OFF();
-    DS_FAN_OUT_ON();
-    HAL_Delay(15);
-    DS_LED_OUT_ON();
-    DS_FAN_OUT_OFF();   
+   if(gLEDsCarFlag)
+   {
+     DS_LED_OUT_ON();   
+     HAL_Delay(50);
+     DS_ATMOSPHERELED1_TOGGLE();
+     DS_ATMOSPHERELED2_TOGGLE();
+     DS_COMMUNICATIONLED_TORGGLE();
+   }
+   else
+   {
+     DS_LED_OUT_OFF();
+     DS_ATMOSPHERELED1_ON();
+     DS_ATMOSPHERELED1_OFF();
+     DS_COMMUNICATIONLED_OFF();
+   }
  }
 
   /**

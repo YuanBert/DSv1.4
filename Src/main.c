@@ -64,7 +64,7 @@ PROTOCOLCMD  gDoorBoardProtocolCmd;
 GPIOSTATUSDETECTION gGentleSensorStatusDetection;
 
 uint8_t gSendOpenFlag = 0;
-
+uint8_t gLEDsCarFlag = 0;
 uint16_t    gTIM4Cnt;
 uint8_t     gTIM4CntFlag;
 
@@ -144,9 +144,8 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-  DS_LEDS_TEST();
-  
   DS_GentleSensorCheck();
+  DS_LEDS_TEST();
   DS_HandingUartDataFromCoreBoard();
   DS_HandingCmdFromCoreBoard(&gCoreBoardProtocolCmd);
   

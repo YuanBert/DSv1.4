@@ -727,6 +727,7 @@
                    if(0xB2 == pRequestCmd->CmdType)
                    {
                      pRequestCmd->AckCodeH   = 0x02;
+                     pRequestCmd->AckCodeL   = 0x00;
                      gSendOpenFlag = 1;
                    }
                    break;
