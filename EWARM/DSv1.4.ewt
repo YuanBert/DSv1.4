@@ -1208,6 +1208,9 @@
                 <name>$PROJ_DIR$\..\Src\ds_led.c</name>
             </file>
             <file>
+                <name>$PROJ_DIR$\..\Src\ds_log.c</name>
+            </file>
+            <file>
                 <name>$PROJ_DIR$\..\Src\ds_protocol.c</name>
             </file>
             <file>

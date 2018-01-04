@@ -47,6 +47,7 @@
   */
     /* Includes ------------------------------------------------------------------*/
 #include "ds_protocol.h"
+#include "ds_log.h"
 
 
     uint8_t AckCmdBuffer[6];
@@ -59,6 +60,7 @@
     extern PROTOCOLCMD  gCoreBoardProtocolCmd;
     extern PROTOCOLCMD  gDoorBoardProtocolCmd;
     extern uint8_t gSendOpenFlag;
+    extern uint8_t gSendLogFlag;
     static uint8_t getXORCode(uint8_t* pData,uint16_t len)
     {
       uint8_t ret;
@@ -259,7 +261,7 @@
     DS_StatusTypeDef DS_SendDataToCoreBoard(uint8_t *pData, uint16_t size,uint32_t Timeout)
     {
       DS_StatusTypeDef state = DS_OK;
-      state = (DS_StatusTypeDef)HAL_UART_Transmit_DMA(&huart1, pData,size);
+      state = (DS_StatusTypeDef)HAL_UART_Transmit(&huart1, pData,size,0xFFFF);
       if(DS_OK != state)
       {
         state = DS_ERROR;
@@ -736,8 +738,30 @@
                    break;
                    
         case 0xC0: pRequestCmd->AckCmdCode = 0xAC;
+                   if(0xC1 == pRequestCmd->CmdType)
+                   {
+                      pRequestCmd->AckCodeH = 0x01;
+                      pRequestCmd->AckCodeL = pRequestCmd->CmdParam;
+                   }
+                   if(0xC2 == pRequestCmd->CmdType)
+                   {
+                      pRequestCmd->AckCodeH = 0x02;
+                      pRequestCmd->AckCodeL = pRequestCmd->CmdParam;                    
+                   }
+                   if(0xC3 == pRequestCmd->CmdType)
+                   {
+                     pRequestCmd->AckCodeH = 0x03;
+                     pRequestCmd->AckCodeL = pRequestCmd->CmdParam;                    
+                   }
+                     
                    break;
         case 0xD0: pRequestCmd->AckCmdCode = 0xAD;
+                   if(0xD1 == pRequestCmd->CmdType)
+                   {
+                     pRequestCmd->AckCodeH = 0x01; 
+                     gSendLogFlag = 1;
+                     //DS_ReportLogInfo();
+                   }
                    break;
         case 0xE0: pRequestCmd->AckCmdCode = 0xAE;
                    break;
@@ -750,6 +774,13 @@
         }
         
         DS_AckRequestCmdFromCoreBoard(pRequestCmd);
+        
+//        if(gSendLogFlag)
+//        {
+//          HAL_Delay(1);
+//          DS_ReportLogInfo();
+//          gSendLogFlag = 0;
+//        }
         
         pRequestCmd->HandingFlag      = 0;
         pRequestCmd->RevRequestFlag   = 0;

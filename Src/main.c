@@ -50,6 +50,7 @@
 #include "ds_led.h"
 #include "ds_protocol.h"
 #include "ds_gentlesensor.h"
+#include "ds_log.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -63,6 +64,8 @@ PROTOCOLCMD  gCoreBoardProtocolCmd;
 PROTOCOLCMD  gDoorBoardProtocolCmd;
 GPIOSTATUSDETECTION gGentleSensorStatusDetection;
 
+uint8_t gSetBuffer[20];
+uint8_t gSendLogFlag = 0;
 uint8_t gSendOpenFlag = 0;
 uint8_t gLEDsCarFlag = 0;
 uint16_t    gTIM4Cnt;
@@ -150,6 +153,12 @@ int main(void)
     {
       DS_LEDS_TEST();
       gTIM5LedFlag = 0;
+    }
+    
+    if(gSendLogFlag)
+    {
+      DS_ReportLogInfo();
+      gSendLogFlag = 0;
     }
     
     DS_GentleSensorCheck();
@@ -289,6 +298,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         gGentleSensorStatusDetection.GpioFilterCnt ++;
         if(gGentleSensorStatusDetection.GpioFilterCnt > gGentleSensorStatusDetection.GpioFilterCntSum && 0 == gGentleSensorStatusDetection.GpioStatusVal)
         {
+          DS_UpgentleStatusInfoLog(1);
           gGentleSensorStatusDetection.GpioStatusVal = 1;
           gGentleSensorStatusDetection.GpioFilterCnt = 0;
           gGentleSensorStatusDetection.GpioCheckedFlag = 1;
@@ -297,6 +307,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     }
     else
     {
+      DS_UpgentleStatusInfoLog(0);
       gGentleSensorStatusDetection.GpioCheckedFlag       = 0;
       gGentleSensorStatusDetection.GpioFilterCnt     = 0;
       gGentleSensorStatusDetection.GpioStatusVal     = 0;
