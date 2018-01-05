@@ -50,7 +50,7 @@
 extern PROTOCOLCMD  gCoreBoardProtocolCmd;
 extern PROTOCOLCMD  gDoorBoardProtocolCmd;
 extern GPIOSTATUSDETECTION gGentleSensorStatusDetection;
- extern uint8_t gLEDsCarFlag;
+extern uint8_t gLEDsCarFlag;
 /*******************************************************************************
 *
 *       Function        :DS_GentleSensorInit()

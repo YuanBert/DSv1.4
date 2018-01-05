@@ -48,6 +48,7 @@
     /* Includes ------------------------------------------------------------------*/
 #include "ds_protocol.h"
 #include "ds_log.h"
+#include "ds_gentlesensor.h"
 
 
     uint8_t AckCmdBuffer[6];
@@ -57,6 +58,7 @@
     USARTRECIVETYPE     CoreBoardUsartType;
     USARTRECIVETYPE     DoorBoardUsartType;
     
+    extern GPIOSTATUSDETECTION gGentleSensorStatusDetection;
     extern PROTOCOLCMD  gCoreBoardProtocolCmd;
     extern PROTOCOLCMD  gDoorBoardProtocolCmd;
     extern uint8_t gSendOpenFlag;
@@ -729,11 +731,18 @@
         switch((pRequestCmd->CmdType) & 0xF0)
         {
         case 0xB0: pRequestCmd->AckCmdCode = 0xAB;
-                   if(0xB2 == pRequestCmd->CmdType)
+                   if(0xB2 == pRequestCmd->CmdType && 0x01 == pRequestCmd->CmdParam)
                    {
                      pRequestCmd->AckCodeH   = 0x02;
-                     pRequestCmd->AckCodeL   = 0x00;
-                     gSendOpenFlag = 1;
+                     if(gGentleSensorStatusDetection.GpioStatusVal) //车未离场，则发送开闸指令，并返回开闸结果
+                     {
+                        pRequestCmd->AckCodeL   = 0x00;
+                        gSendOpenFlag = 1;
+                     }
+                     else
+                     {
+                        pRequestCmd->AckCodeL = 0x01;
+                     }
                    }
                    break;
                    

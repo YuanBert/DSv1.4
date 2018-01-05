@@ -68,6 +68,8 @@ uint8_t gSetBuffer[20];
 uint8_t gSendLogFlag = 0;
 uint8_t gSendOpenFlag = 0;
 uint8_t gLEDsCarFlag = 0;
+
+uint32_t    gLogCnt;
 uint16_t    gTIM4Cnt;
 uint8_t     gTIM4CntFlag;
 
@@ -153,6 +155,12 @@ int main(void)
     {
       DS_LEDS_TEST();
       gTIM5LedFlag = 0;
+    }
+    
+    if(gLogCnt > 10000)
+    {
+      DS_ReportLogInfo();
+      gLogCnt= 0;
     }
     
     if(gSendLogFlag)
@@ -319,8 +327,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   /* 1ms */
   if(htim5.Instance == htim->Instance)
   {
+    gLogCnt ++;
     gTIM5LedCnt++;
-    if(gTIM5LedCnt > 50)
+    if(gTIM5LedCnt > 200)
     {
       gTIM5LedFlag = 1;
       gTIM5LedCnt = 0;
