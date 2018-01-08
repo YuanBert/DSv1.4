@@ -47,7 +47,7 @@
 #include "usart.h"
 #include "ds_protocol.h"
 
-void DS_UpTemInfoLog(int16_t tTemp);
+void DS_UpTemInfoLog(uint16_t tTemp);
 void DS_UpLightInfoLog(uint16_t tTemp);
 void DS_UpFanStatusInfoLog(uint8_t tStatus);
 void DS_UpFlashLightInfoLog(uint8_t tStatus);

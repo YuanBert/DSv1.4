@@ -9,7 +9,7 @@
   * inserted by the user or by software development tools
   * are owned by their respective copyright owners.
   *
-  * COPYRIGHT(c) 2017 STMicroelectronics
+  * COPYRIGHT(c) 2018 STMicroelectronics
   *
   * Redistribution and use in source and binary forms, with or without modification,
   * are permitted provided that the following conditions are met:
@@ -64,6 +64,10 @@ PROTOCOLCMD  gCoreBoardProtocolCmd;
 PROTOCOLCMD  gDoorBoardProtocolCmd;
 GPIOSTATUSDETECTION gGentleSensorStatusDetection;
 
+uint32_t ADC_Value[10];
+uint32_t gLightADCValue;
+uint32_t gTempValue;
+
 uint8_t gSetBuffer[20];
 uint8_t gSendLogFlag = 0;
 uint8_t gSendOpenFlag = 0;
@@ -96,6 +100,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+  uint8_t i = 0;
 
   /* USER CODE END 1 */
 
@@ -131,8 +136,11 @@ int main(void)
   /* USER CODE BEGIN 2 */
   DS_LED_Init();
   
+  HAL_ADC_Start_DMA(&hadc1,(uint32_t*)&ADC_Value,10);
+  
   HAL_TIM_Base_Start_IT(&htim4);
   HAL_TIM_Base_Start_IT(&htim5);
+  
   DS_GentleSensorInit();
   DS_CoreBoardProtocolInit();
   DS_DoorBoardProtocolInit();
@@ -148,9 +156,9 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */
-    
-    /* USER CODE BEGIN 3 */
+  /* USER CODE END WHILE */
+
+  /* USER CODE BEGIN 3 */
     if(gTIM5LedFlag)
     {
       DS_LEDS_TEST();
@@ -180,6 +188,18 @@ int main(void)
     {
       DS_TrySend5TimesCmdToCoreBoard(&gCoreBoardProtocolCmd);
       DS_TrySend5TimesCmdToDoorBoard(&gDoorBoardProtocolCmd);
+      for(i = 0; i < 10;)
+      {
+        gLightADCValue += ADC_Value[i++];
+        gTempValue += ADC_Value[i++];
+      }
+      gLightADCValue /= 5;
+      gTempValue /=5;
+      
+      DS_UpTemInfoLog(gTempValue);
+      DS_UpLightInfoLog(gLightADCValue);
+      gLightADCValue = 0;
+      gTempValue = 0;
       gTIM5CntFlag = 0;
     }
     
