@@ -198,6 +198,7 @@ int main(void)
       
       DS_UpTemInfoLog(gTempValue);
       DS_UpLightInfoLog(gLightADCValue);
+      
       gLightADCValue = 0;
       gTempValue = 0;
       gTIM5CntFlag = 0;

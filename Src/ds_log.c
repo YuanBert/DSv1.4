@@ -64,13 +64,13 @@ static uint8_t DriverBoardInfo[10];
 
 void DS_UpTemInfoLog(uint16_t tTemp)
 {
-    DriverBoardInfo[0] = (uint8_t)(tTemp >> 8);
+    DriverBoardInfo[0] = (uint8_t)((tTemp >> 8) & 0x0F);
     DriverBoardInfo[1] = (uint8_t)tTemp;
 }
 
 void DS_UpLightInfoLog(uint16_t tTemp)
 {
-    DriverBoardInfo[2] = (uint8_t)(tTemp >> 8) & 0x0F;
+    DriverBoardInfo[2] = (uint8_t)((tTemp >> 8) & 0x0F);
     DriverBoardInfo[3] = (uint8_t)tTemp;
 }
 
