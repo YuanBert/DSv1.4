@@ -990,18 +990,28 @@
       
       return state;
     }
-
-
-
-
-
-
     
-
-
-
-
-   
+    DS_StatusTypeDef DS_SendHelpCmd(void)
+    {
+      DS_StatusTypeDef state = DS_OK;
+      uint8_t i;
+      uint8_t temp[7];
+      temp[0] = 0x5B;
+      temp[1] = 0xE3;
+      temp[2] = 0x01;
+      temp[3] = 0x00;
+      temp[4] = 0x00;
+      temp[5] = 0x00;
+      temp[6] = 0x5D;
+      
+      temp[5] = temp[1];
+      for(i = 0; i < 3; i++)
+      {
+        temp[5] ^=temp[2 + i];
+      }
+      state = (DS_StatusTypeDef)HAL_UART_Transmit(&huart1, temp, 7,0xFFFF);
+      return state;
+    }
   /**
   * @}
   */

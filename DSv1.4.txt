@@ -1,6 +1,6 @@
 Configuration	DSv1.4
 STM32CubeMX 	4.23.0
-Date	01/08/2018
+Date	01/12/2018
 MCU	STM32F103RCTx
 
 
@@ -56,7 +56,7 @@ SOFTWARE PROJECT
 Project Settings : 
 Project Name : DSv1.4
 Project Folder : E:\Users\bertz\Documents\GitHub\DSv1.4
-Toolchain / IDE : EWARM
+Toolchain / IDE : Other Toolchains (GPDSC)
 Firmware Package Name and Version : STM32Cube FW_F1 V1.6.0
 
 

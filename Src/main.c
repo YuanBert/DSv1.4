@@ -63,6 +63,7 @@ extern  USARTRECIVETYPE     DoorBoardUsartType;
 PROTOCOLCMD  gCoreBoardProtocolCmd;
 PROTOCOLCMD  gDoorBoardProtocolCmd;
 GPIOSTATUSDETECTION gGentleSensorStatusDetection;
+GPIOSTATUSDETECTION gMCUKeyInGpio;
 
 uint32_t ADC_Value[10];
 uint32_t gLightADCValue;
@@ -101,7 +102,8 @@ int main(void)
 
   /* USER CODE BEGIN 1 */
   uint8_t i = 0;
-
+  gMCUKeyInGpio.GpioSendDataFlag = 0;
+  gMCUKeyInGpio.GpioFilterCntSum = 5;
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -175,6 +177,13 @@ int main(void)
     {
       DS_ReportLogInfo();
       gSendLogFlag = 0;
+    }
+    
+    /* ÊÓÆµ°ïÖúºô½Ð */
+    if(gMCUKeyInGpio.GpioSendDataFlag)
+    {
+      DS_SendHelpCmd();
+      gMCUKeyInGpio.GpioSendDataFlag = 0;
     }
     
     DS_GentleSensorCheck();
@@ -367,6 +376,29 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     {
       gGentleSensorStatusDetection.GpioValidLogicTimeCnt--;
     }
+    
+    gMCUKeyInGpio.GpioCurrentReadVal = HAL_GPIO_ReadPin(MCU_KEY_IN_GPIO_Port,MCU_KEY_IN_Pin);
+    if(0 == gMCUKeyInGpio.GpioCurrentReadVal && 0 == gMCUKeyInGpio.GpioLastReadVal)
+    {
+      if(0 == gMCUKeyInGpio.GpioCheckedFlag)
+      {
+        gMCUKeyInGpio.GpioFilterCnt ++;
+        if(gMCUKeyInGpio.GpioFilterCnt > gMCUKeyInGpio.GpioFilterCntSum && gMCUKeyInGpio.GpioStatusVal)
+        {
+          gMCUKeyInGpio.GpioStatusVal = 1;
+          gMCUKeyInGpio.GpioFilterCnt = 0;
+          gMCUKeyInGpio.GpioCheckedFlag = 1;
+          gMCUKeyInGpio.GpioSendDataFlag = 1;
+        }
+      }
+    }
+    else
+    {
+      gMCUKeyInGpio.GpioStatusVal = 0;
+      gMCUKeyInGpio.GpioFilterCnt = 0;
+      gMCUKeyInGpio.GpioCheckedFlag = 0;      
+    }
+    gMCUKeyInGpio.GpioLastReadVal = gMCUKeyInGpio.GpioCurrentReadVal;
   }
 
 }

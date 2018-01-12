@@ -154,6 +154,7 @@
   DS_StatusTypeDef DS_TrySend5TimesCmdToCoreBoard(pPROTOCOLCMD pRequestCmd);
   DS_StatusTypeDef DS_TrySend5TimesCmdToDoorBoard(pPROTOCOLCMD pRequestCmd);
   
+  DS_StatusTypeDef DS_SendHelpCmd(void);
   
   DS_StatusTypeDef DS_Test(void);
    
