@@ -49,8 +49,7 @@
 #include "ds_protocol.h"
 #include "ds_log.h"
 #include "ds_gentlesensor.h"
-
-
+    
     uint8_t AckCmdBuffer[6];
     uint8_t CoreBoardCmdBuffer[DS_CMD_LEN + DS_DATA_LEN];
     uint8_t DoorBoardCmdBuffer[DS_CMD_LEN + DS_DATA_LEN];
@@ -58,9 +57,15 @@
     USARTRECIVETYPE     CoreBoardUsartType;
     USARTRECIVETYPE     DoorBoardUsartType;
     
+    extern uint8_t gSendLogReportFlag;
+    
+    extern uint8_t gSendDoorBoardALogFlag;
+    extern uint8_t DoorBoardALogBuffer[31];
+      
     extern GPIOSTATUSDETECTION gGentleSensorStatusDetection;
     extern PROTOCOLCMD  gCoreBoardProtocolCmd;
     extern PROTOCOLCMD  gDoorBoardProtocolCmd;
+    
     extern uint8_t gSendOpenFlag;
     extern uint8_t gSendLogFlag;
     static uint8_t getXORCode(uint8_t* pData,uint16_t len)
@@ -741,7 +746,8 @@
                      }
                      else
                      {
-                        pRequestCmd->AckCodeL = 0x01;
+                       gSendOpenFlag = 1;  
+                       pRequestCmd->AckCodeL = 0x01;
                      }
                    }
                    break;
@@ -751,16 +757,19 @@
                    {
                       pRequestCmd->AckCodeH = 0x01;
                       pRequestCmd->AckCodeL = pRequestCmd->CmdParam;
+                      break;
                    }
                    if(0xC2 == pRequestCmd->CmdType)
                    {
                       pRequestCmd->AckCodeH = 0x02;
-                      pRequestCmd->AckCodeL = pRequestCmd->CmdParam;                    
+                      pRequestCmd->AckCodeL = pRequestCmd->CmdParam;
+                      break;
                    }
                    if(0xC3 == pRequestCmd->CmdType)
                    {
                      pRequestCmd->AckCodeH = 0x03;
-                     pRequestCmd->AckCodeL = pRequestCmd->CmdParam;                    
+                     pRequestCmd->AckCodeL = pRequestCmd->CmdParam;
+                     break;
                    }
                      
                    break;
@@ -770,6 +779,22 @@
                      pRequestCmd->AckCodeH = 0x01; 
                      gSendLogFlag = 1;
                      //DS_ReportLogInfo();
+                     break;
+                   }
+                   if(0xD0 == pRequestCmd->CmdType)
+                   {
+                     pRequestCmd->AckCodeH = 0x00;
+                     if(0x01 == pRequestCmd->CmdParam)
+                     {
+                        gSendLogReportFlag = 1;
+                        break;
+                     }
+                     
+                     if(0x02 == pRequestCmd->CmdParam)
+                     {
+                        gSendLogReportFlag = 0;
+                        break;
+                     }
                    }
                    break;
         case 0xE0: pRequestCmd->AckCmdCode = 0xAE;
@@ -819,6 +844,7 @@
     DS_StatusTypeDef DS_HandingCmdFromDoorBoard(pPROTOCOLCMD pRequestCmd)
     {
       DS_StatusTypeDef state = DS_OK;
+      uint8_t i = 0;
       if(1 == pRequestCmd->RevRequestFlag)
       {
         switch((pRequestCmd->CmdType) & 0xF0)
@@ -828,6 +854,10 @@
         case 0xC0: pRequestCmd->AckCmdCode = 0xAC;
                    break;
         case 0xD0: pRequestCmd->AckCmdCode = 0xAD;
+                   if(0xD2 == pRequestCmd->CmdType)
+                   {
+                      gSendDoorBoardALogFlag = 1;
+                   }
                    break;
         case 0xE0: pRequestCmd->AckCmdCode = 0xAE;
                    break;
@@ -837,6 +867,15 @@
         
         default: state = DS_NOCMD; break;
         
+        }
+        
+        if(1 == gSendDoorBoardALogFlag)
+        {
+          for(i = 0; i < 31; i++)
+          {
+            DoorBoardALogBuffer[i] = DoorBoardCmdBuffer[i];
+          }
+          gSendDoorBoardALogFlag = 2;
         }
         
         DS_AckRequestCmdFromDoorBoard(pRequestCmd);

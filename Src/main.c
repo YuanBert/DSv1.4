@@ -60,6 +60,9 @@
 extern  USARTRECIVETYPE     CoreBoardUsartType;
 extern  USARTRECIVETYPE     DoorBoardUsartType;
 
+uint8_t gSendDoorBoardALogFlag;
+uint8_t DoorBoardALogBuffer[31];
+
 PROTOCOLCMD  gCoreBoardProtocolCmd;
 PROTOCOLCMD  gDoorBoardProtocolCmd;
 GPIOSTATUSDETECTION gGentleSensorStatusDetection;
@@ -70,6 +73,7 @@ uint32_t gLightADCValue;
 uint32_t gTempValue;
 
 uint8_t gSetBuffer[20];
+uint8_t gSendLogReportFlag = 1;
 uint8_t gSendLogFlag = 0;
 uint8_t gSendOpenFlag = 0;
 uint8_t gLEDsCarFlag = 0;
@@ -173,7 +177,7 @@ int main(void)
       gLogCnt= 0;
     }
     
-    if(gSendLogFlag)
+    if(gSendLogFlag && gSendLogReportFlag)
     {
       DS_ReportLogInfo();
       gSendLogFlag = 0;
@@ -192,6 +196,18 @@ int main(void)
     
     DS_HandingUartDataFromDoorBoard();
     DS_HandingCmdFromDoorBoard(&gDoorBoardProtocolCmd);
+    
+    /* 上传道闸A信息 */
+    if(2 == gSendDoorBoardALogFlag)
+    {
+      DS_SendDataToCoreBoard(DoorBoardALogBuffer,31,0xFFFF);
+      for(i = 0; i < 31; i++)
+      {
+        DoorBoardALogBuffer[i] = 0;
+      }
+      i = 0;
+      gSendDoorBoardALogFlag = 0;
+    }
     
     if(1 == gTIM5CntFlag)
     {
