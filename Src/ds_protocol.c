@@ -497,6 +497,8 @@
           if(gDoorBoardProtocolCmd.DataLength == gDoorBoardProtocolCmd.RevDataCnt)
           {
             gDoorBoardProtocolCmd.XOR8BIT     =*(DoorBoardUsartType.RX_pData + i + 1);
+            DoorBoardCmdBuffer[5 + gDoorBoardProtocolCmd.RevDataCnt + i] = gDoorBoardProtocolCmd.XOR8BIT;
+            
             if(0x5D != *(DoorBoardUsartType.RX_pData + i + 2))
             {
               gDoorBoardProtocolCmd.RevDataCnt          = 0;
@@ -504,6 +506,7 @@
               gDoorBoardProtocolCmd.TotalLength         = 0;
               return state;
             }
+            DoorBoardCmdBuffer[5 + gDoorBoardProtocolCmd.RevDataCnt + i + 1] = 0x5D;
             gDoorBoardProtocolCmd.TotalLength = gDoorBoardProtocolCmd.DataLength + REQUESTFIXEDCOMMANDLEN;
             /* here to check XOR code */
             xorTemp = getXORCode(DoorBoardCmdBuffer + 1, gDoorBoardProtocolCmd.TotalLength - 3);
@@ -563,6 +566,8 @@
           {
             return state;
           }
+          DoorBoardCmdBuffer[5] = *(DoorBoardUsartType.RX_pData + 5);
+          DoorBoardCmdBuffer[6] = *(DoorBoardUsartType.RX_pData + REQUESTFIXEDCOMMANDLEN - 1);
           gDoorBoardProtocolCmd.XOR8BIT       =*(DoorBoardUsartType.RX_pData + 5);
           gDoorBoardProtocolCmd.TotalLength   = REQUESTFIXEDCOMMANDLEN;
           /* here to check XOR */
@@ -589,6 +594,8 @@
               gDoorBoardProtocolCmd.TotalLength         = 0;
               return state;
             }
+            DoorBoardCmdBuffer[i + 2]            = 0x5D;
+            DoorBoardCmdBuffer[i + 1]            = *(DoorBoardUsartType.RX_pData + i + 1);
             gDoorBoardProtocolCmd.XOR8BIT        = *(DoorBoardUsartType.RX_pData + i + 1);
             gDoorBoardProtocolCmd.TotalLength    = REQUESTFIXEDCOMMANDLEN + gDoorBoardProtocolCmd.DataLength;
             
@@ -854,6 +861,7 @@
         case 0xC0: pRequestCmd->AckCmdCode = 0xAC;
                    break;
         case 0xD0: pRequestCmd->AckCmdCode = 0xAD;
+        
                    if(0xD2 == pRequestCmd->CmdType)
                    {
                       gSendDoorBoardALogFlag = 1;
