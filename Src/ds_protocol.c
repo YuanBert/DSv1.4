@@ -294,8 +294,7 @@
     {
       DS_StatusTypeDef state = DS_OK;
       HAL_GPIO_WritePin(CTR485_EN_GPIO_Port,CTR485_EN_Pin,GPIO_PIN_SET);
-      state = (DS_StatusTypeDef)HAL_UART_Transmit_DMA(&huart2, pData,size);
-      HAL_Delay(1);
+      state = (DS_StatusTypeDef)HAL_UART_Transmit(&huart2, pData,size,Timeout);
       HAL_GPIO_WritePin(CTR485_EN_GPIO_Port,CTR485_EN_Pin,GPIO_PIN_RESET);
       return state;
     }
@@ -657,12 +656,12 @@
     DS_StatusTypeDef DS_SendRequestCmdToDoorBoard(pPROTOCOLCMD pRequestCmd)
     {
       DS_StatusTypeDef state = DS_OK;
-      if(pRequestCmd->RevRequestFlag)
-      {
-        return state;
-      }
+//      if(pRequestCmd->RevRequestFlag)
+//      {
+//        return state;
+//      }
       state = DS_SendRequestCmd(pRequestCmd, DoorBoardCmdBuffer);  
-      state = DS_SendDataToCoreBoard(DoorBoardCmdBuffer,pRequestCmd->TotalLength,0xFFFF);
+      state = DS_SendDataToDoorBoard(DoorBoardCmdBuffer,pRequestCmd->TotalLength,0xFFFF);
       
       return state;
       
