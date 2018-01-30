@@ -77,7 +77,7 @@ uint8_t gSendLogReportFlag = 1;
 uint8_t gSendLogFlag = 0;
 uint8_t gSendOpenFlag = 0;
 uint8_t gLEDsCarFlag = 0;
-
+uint8_t gPWMLedFlag = 0;
 uint32_t    gLogCnt;
 uint16_t    gTIM4Cnt;
 uint8_t     gTIM4CntFlag;
@@ -86,6 +86,9 @@ uint16_t    gTIM5Cnt;
 uint8_t     gTIM5CntFlag;
 uint16_t    gTIM5LedCnt;
 uint8_t     gTIM5LedFlag;
+uint8_t     gTIM5PWMFlag;
+uint8_t     gTIM5PWMCnt;
+uint16_t    gPWMValue;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -94,7 +97,7 @@ static void MX_NVIC_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-
+void DS_SetLedPwmValue(uint16_t value);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
@@ -135,13 +138,14 @@ int main(void)
   MX_SPI1_Init();
   MX_TIM4_Init();
   MX_TIM5_Init();
+  MX_TIM3_Init();
 
   /* Initialize interrupts */
   MX_NVIC_Init();
 
   /* USER CODE BEGIN 2 */
   DS_LED_Init();
-  
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
   HAL_ADC_Start_DMA(&hadc1,(uint32_t*)&ADC_Value,10);
   
   HAL_TIM_Base_Start_IT(&htim4);
@@ -191,6 +195,20 @@ int main(void)
     }
     
     DS_GentleSensorCheck();
+    
+    if(gTIM5PWMFlag)
+    {
+      if(gPWMValue > 3800)
+      {
+        gPWMValue = 3900;
+      }
+      DS_SetLedPwmValue(gPWMValue);
+    }
+    else
+    {
+      DS_SetLedPwmValue(0);
+    }
+    
     DS_HandingUartDataFromCoreBoard();
     DS_HandingCmdFromCoreBoard(&gCoreBoardProtocolCmd);
     
@@ -330,6 +348,9 @@ static void MX_NVIC_Init(void)
   /* ADC1_2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(ADC1_2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(ADC1_2_IRQn);
+  /* TIM3_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(TIM3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(TIM3_IRQn);
 }
 
 /* USER CODE BEGIN 4 */
@@ -353,6 +374,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         if(gGentleSensorStatusDetection.GpioFilterCnt > gGentleSensorStatusDetection.GpioFilterCntSum && 0 == gGentleSensorStatusDetection.GpioStatusVal)
         {
           DS_UpgentleStatusInfoLog(1);
+          gPWMLedFlag = 1;
           gGentleSensorStatusDetection.GpioStatusVal = 1;
           gGentleSensorStatusDetection.GpioFilterCnt = 0;
           gGentleSensorStatusDetection.GpioCheckedFlag = 1;
@@ -362,6 +384,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     else
     {
       DS_UpgentleStatusInfoLog(0);
+      gPWMLedFlag = 0;
       gGentleSensorStatusDetection.GpioCheckedFlag       = 0;
       gGentleSensorStatusDetection.GpioFilterCnt     = 0;
       gGentleSensorStatusDetection.GpioStatusVal     = 0;
@@ -375,6 +398,22 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   {
     gLogCnt ++;
     gTIM5LedCnt++;
+    gTIM5PWMCnt++;
+      if(gTIM5PWMCnt > 3)
+      {
+        if(gPWMLedFlag)
+        {
+          gPWMValue += 2;
+          gTIM5PWMFlag = 1;
+        }
+        else
+        {
+          gPWMValue = 900;
+          gTIM5PWMFlag = 0;
+          
+        }
+        gTIM5PWMCnt = 0;
+      }
     if(gTIM5LedCnt > 200)
     {
       gTIM5LedFlag = 1;
@@ -417,6 +456,17 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     gMCUKeyInGpio.GpioLastReadVal = gMCUKeyInGpio.GpioCurrentReadVal;
   }
 
+}
+
+void DS_SetLedPwmValue(uint16_t value)
+{
+   TIM_OC_InitTypeDef sConfigOC;
+   sConfigOC.OCMode = TIM_OCMODE_PWM1;
+   sConfigOC.Pulse = value;
+   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+   HAL_TIM_PWM_ConfigChannel(&htim3,&sConfigOC,TIM_CHANNEL_1);
+   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
 }
 
 /* USER CODE END 4 */

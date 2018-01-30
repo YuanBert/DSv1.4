@@ -68,6 +68,7 @@
     
     extern uint8_t gSendOpenFlag;
     extern uint8_t gSendLogFlag;
+    
     static uint8_t getXORCode(uint8_t* pData,uint16_t len)
     {
       uint8_t ret;

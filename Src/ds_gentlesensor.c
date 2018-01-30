@@ -94,7 +94,6 @@ DS_StatusTypeDef DS_GentleSensorCheck(void)
   {
     /* Turn off the flash if the car leaves or if the flash blinks longer than the set value */
     gLEDsCarFlag = 0;
-    DS_LED_OUT_OFF();
     
   }
   
@@ -115,7 +114,6 @@ DS_StatusTypeDef DS_GentleSensorCheck(void)
     gGentleSensorStatusDetection.GpioValidLogicTimeCnt = 90100;
     /* Flash open*/
     gLEDsCarFlag = 1;
-    DS_LED_OUT_ON();
     
     /* Report the arrival of car */
     gCoreBoardProtocolCmd.CmdType    = 0xB1;
