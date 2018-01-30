@@ -123,6 +123,7 @@ DS_StatusTypeDef DS_GentleSensorCheck(void)
     gCoreBoardProtocolCmd.DataLength = 0x0000;
     gCoreBoardProtocolCmd.DataLengthLow    = 0x00;
     gCoreBoardProtocolCmd.DataLengthHight  = 0x00;
+    HAL_Delay(100);
     state = DS_SendRequestCmdToCoreBoard(&gCoreBoardProtocolCmd);
     
     gGentleSensorStatusDetection.GpioSendDataFlag = 0;

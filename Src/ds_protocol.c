@@ -933,7 +933,7 @@
         }
         else
         {
-          if(pRequestCmd->SendTimesCnt > 4)
+          if(pRequestCmd->SendTimesCnt > 1)
           {
             //³¬Ê±´íÎó
             pRequestCmd->HandingFlag = 0;
