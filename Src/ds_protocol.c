@@ -337,7 +337,7 @@
       {
         for(i = 0; i < CoreBoardUsartType.RX_Size; i++)
         {
-          CoreBoardCmdBuffer[5 + gCoreBoardProtocolCmd.RevDataCnt + i] = *(CoreBoardUsartType.RX_pData + i);
+          CoreBoardCmdBuffer[5 + gCoreBoardProtocolCmd.RevDataCnt] = *(CoreBoardUsartType.RX_pData + i);
           gCoreBoardProtocolCmd.RevDataCnt ++;
           if(gCoreBoardProtocolCmd.DataLength == gCoreBoardProtocolCmd.RevDataCnt)
           {
